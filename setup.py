@@ -6,6 +6,7 @@ setup(name='cmtestrunner',
       author='Tasin Nawaz',
       author_email='tasin.buet@gmail.com',
       license='CM',
+      url='https://github.com/tasin-megamind/cmtestrunner',
       packages=['cmtestrunner'],
       install_requires=[
           'django==2.0.6',
