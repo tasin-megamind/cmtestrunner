@@ -1,0 +1,1 @@
+from import_path import test_object    # noqa # pylint: disable=unused-import

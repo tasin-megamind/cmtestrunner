@@ -1,0 +1,15 @@
+import <app>.test_methods as test_methods
+from cmtestrunner import TestRunner
+
+class Test<App>API(TestCase):
+    def setUp(self):
+        self.test_runner = TestRunner()
+<><><><><><><><><><>
+
+    def test_<test_name>(self):
+        self.test_runner.execute_tests(
+            test_data_set='<test_name>.csv',
+            test_method=test_methods.<test_name>,
+            env=[],
+            sub_test=self.subTest
+        )

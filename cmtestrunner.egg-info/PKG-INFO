@@ -1,8 +1,8 @@
 Metadata-Version: 1.0
 Name: cmtestrunner
-Version: 0.5
+Version: 0.9
 Summary: custom test runner for API test
-Home-page: UNKNOWN
+Home-page: https://github.com/tasin-megamind/cmtestrunner
 Author: Tasin Nawaz
 Author-email: tasin.buet@gmail.com
 License: CM

@@ -1,0 +1,7 @@
+from cmtestrunner import TestRunner
+
+class CustomRunner(TestRunner):
+    create_default_user = lambda:None
+    create_default_superuser = lambda:None
+    create_default_superuser_token = lambda:None
+    create_default_user_token = lambda:None

@@ -1,0 +1,14 @@
+from cmtestrunner.ddt import ddt, data
+import utils.test.unittest as unit_tests
+
+
+@ddt
+class UnitTests():
+<><><><><><><><><>
+	@data('test_data_file_name.csv', 'U')
+	def test_name(self, test_data):
+		test_obj = unit_tests.test_class_name.test_method_name
+		self.test_runner.execute_unit_tests(
+				test_data=test_data,
+				test_method=test_obj
+				)

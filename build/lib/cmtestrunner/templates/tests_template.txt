@@ -1,0 +1,18 @@
+from unittest import TestCase
+import <app>.test_methods as test_methods
+from utils.test.test_runner import CustomRunner
+
+
+class Test<App>API(TestCase):
+    def setUp(self):
+        self.test_runner = CustomRunner()
+
+<><><><><><><><><><>
+
+    def test_<test_name>(self):
+        self.test_runner.execute_tests(
+            test_data_set='<test_name>.csv',
+            test_method=test_methods.<test_name>,
+            env=[],
+            sub_test=self.subTest
+        )
