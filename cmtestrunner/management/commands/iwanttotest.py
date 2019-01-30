@@ -9,9 +9,11 @@ class Command(BaseCommand):
     def create_dir(self, directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
+            print('created ' + directory)
 
     def create_file(self, file):
         open(file, 'a+')
+        print('created ' + file)
 
     def handle(self, *args, **kwargs):
         self.create_dir(settings.BASE_DIR + '/utils')
@@ -23,6 +25,7 @@ class Command(BaseCommand):
         self.create_dir(settings.BASE_DIR + '/utils/test/translation')
         self.create_dir(settings.BASE_DIR + '/utils/fixtures')
 
+        self.create_file(settings.BASE_DIR + '/utils/__init__.py')
         self.create_file(settings.BASE_DIR + '/utils/test/endpoints.yml')
         self.create_file(settings.BASE_DIR + '/utils/test/unittest.py')
 

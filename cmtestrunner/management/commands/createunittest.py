@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 import re
 import os
-import config.settings as settings
+from django.conf import settings
+import pkg_resources
 
 
 class Command(BaseCommand):
@@ -27,7 +28,7 @@ class Command(BaseCommand):
             f.write(content)
 
     def write_to_unit_test_imports(self, content):
-        with open(settings.settings.BASE_DIR + '/utils/test/' + 'unittest.py',
+        with open(settings.BASE_DIR + '/utils/test/' + 'unittest.py',
                   'a') as f:
             f.write(content)
 
@@ -47,16 +48,17 @@ class Command(BaseCommand):
 
         try:
             current_tests = open(settings.BASE_DIR + '/' + self.app_name + '/tests/test_unit.py', 'r').read()
-            if current_tests:
-                test_method_template = test_method_template.split('<><><><><><><><><>')[1]
-            else:
-                test_method_template = test_method_template.replace('<><><><><><><><><>', '')
             test_method_template = self.get_template(
                 'unit_test_method_template.txt')
             test_import_template = self.get_template(
                 'unit_test_import_template.txt')
             test_method = re.sub('test_[A-Za-z]+_', '', test_name)
             self.create_test_data_file(test_method)
+
+            if current_tests:
+                test_method_template = test_method_template.split('<><><><><><><><><>')[1]
+            else:
+                test_method_template = test_method_template.replace('<><><><><><><><><>', '')
 
             test_method_template = test_method_template.replace(
                 'test_name', test_name)
@@ -125,6 +127,7 @@ class Command(BaseCommand):
         import_path = options.get('p')
         test_class = options.get('c', None)
         static_method = options.get('static_method', False)
+        self.create_skeleton()
 
         if self.create_unit_test(test_name, import_path, test_class,
                                  static_method):

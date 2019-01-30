@@ -88,7 +88,7 @@ class Command(BaseCommand):
         self.request_method = kwargs.get('X')
         self.test_name = kwargs.get('t')
 
-        self.test_url_alias = self.test_name.upper()
+        self.test_url_alias = self.test_name.upper() + '_URL'
         self.create_dir(base_dir + '/' + self.app_name + '/tests')
         self.create_file(base_dir + '/' + self.app_name + '/tests/test_api.py')
         self.create_file(base_dir + '/' + self.app_name + '/tests/test_methods.py')

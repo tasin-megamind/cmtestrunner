@@ -152,3 +152,44 @@ def process_request_response(**kwargs):
         kwargs.get('data', None),
         format=kwargs.get('format', 'json'))
     return format_response(response)
+
+def unit_test_formatter(file_name):
+    with open(settings.TEST_DATA_PATH + 'unittest/' + file_name, 'r')\
+            as test_file:
+        test_data = csv.reader(test_file, delimiter=',', quotechar='"')
+        header = next(test_data)
+
+        all_test_data = []
+        args_idx = []
+        kwargs_idx = []
+        returns_idx = None
+
+        for index, each_header in enumerate(header):
+            if each_header[:6] == 'kwargs':
+                kwargs_idx.append(index)
+            elif each_header == 'returns':
+                returns_idx = index
+            else:
+                args_idx.append(index)
+
+        for each_row in test_data:
+            args = []
+            kwargs = {}
+            returns = ''
+
+            for arg_idx in args_idx:
+                args.append(get_int_value_if_available(each_row[arg_idx]))
+
+            for kwarg_idx in kwargs_idx:
+                kwargs[header[kwarg_idx][7:]] = get_int_value_if_available(
+                    each_row[kwarg_idx])
+
+            returns = get_int_value_if_available(each_row[returns_idx])
+
+            all_test_data.append({
+                'args': args,
+                'kwargs': kwargs,
+                'returns': returns
+            })
+
+        return all_test_data

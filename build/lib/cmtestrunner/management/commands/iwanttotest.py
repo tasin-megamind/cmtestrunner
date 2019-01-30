@@ -9,9 +9,11 @@ class Command(BaseCommand):
     def create_dir(self, directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
+            print('created ' + directory)
 
     def create_file(self, file):
         open(file, 'a+')
+        print('created ' + file)
 
     def handle(self, *args, **kwargs):
         self.create_dir(settings.BASE_DIR + '/utils')

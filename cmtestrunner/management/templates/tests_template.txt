@@ -1,4 +1,5 @@
-import <app>.test_methods as test_methods
+from unittest import TestCase
+import <app>.tests.test_methods as test_methods
 from cmtestrunner import TestRunner
 
 class Test<App>API(TestCase):

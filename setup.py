@@ -1,7 +1,7 @@
 import setuptools
 
 setuptools.setup(name='cmtestrunner',
-      version='0.9',
+      version='1.1',
       description='custom test runner for API test',
       author='Tasin Nawaz',
       author_email='tasin.buet@gmail.com',
@@ -11,7 +11,8 @@ setuptools.setup(name='cmtestrunner',
       include_package_data=True,
       install_requires=[
           'django==2.0.6',
-          'djangorestframework==3.8.2'
+          'djangorestframework==3.8.2',
+          'PyYAML==3.12'
       ],
       zip_safe=False)
 

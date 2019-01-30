@@ -1,9 +1,13 @@
+from unittest import TestCase
 from cmtestrunner.ddt import ddt, data
+from cmtestrunner import TestRunner
 import utils.test.unittest as unit_tests
 
 
 @ddt
-class UnitTests():
+class UnitTests(TestCase):
+	def setUp(self):
+        self.test_runner = TestRunner()
 <><><><><><><><><>
 	@data('test_data_file_name.csv', 'U')
 	def test_name(self, test_data):

@@ -1,6 +1,6 @@
 # CM Test Runner
 
-This is a test runner for API testing available for django projects
+This is a test runner for API testing & unit testing available for django projects
 
 ## Getting Started
 python3 is needed for this package

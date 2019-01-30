@@ -12,10 +12,33 @@ from io import StringIO
 from django.core.management import call_command
 from django.apps import apps
 from rest_framework.test import APIClient
+from types import SimpleNamespace as Namespace
 
 reset_seq_query = ''
 all_models = []
 
+def get_random_string(size):
+    chars = string.ascii_uppercase + string.digits + string.ascii_lowercase
+    return ''.join(random.choice(chars) for _ in range(size))
+
+def add_str_to_each_list_element(str, list_, where='before'):
+    if where != 'before':
+        new_list = [x + str for x in list_]
+    else:
+        new_list = [str + x for x in list_]
+
+    return new_list
+
+
+def get_int_value_if_available(value):
+    try:
+        match = re.match(r'int\(([0-9]+)\)', str(value))
+    except Exception as e:
+        return 'lib error: ' + str(e)
+    if match is not None:
+        return int(match[1])
+    else:
+        return value
 
 def set_reset_seq_query():
     global reset_seq_query
@@ -152,3 +175,63 @@ def process_request_response(**kwargs):
         kwargs.get('data', None),
         format=kwargs.get('format', 'json'))
     return format_response(response)
+
+def unit_test_formatter(file_name):
+    with open(settings.TEST_DATA_PATH + 'unittest/' + file_name, 'r')\
+            as test_file:
+        test_data = csv.reader(test_file, delimiter=',', quotechar='"')
+        header = next(test_data)
+
+        all_test_data = []
+        args_idx = []
+        kwargs_idx = []
+        returns_idx = None
+
+        for index, each_header in enumerate(header):
+            if each_header[:6] == 'kwargs':
+                kwargs_idx.append(index)
+            elif each_header == 'returns':
+                returns_idx = index
+            else:
+                args_idx.append(index)
+
+        for each_row in test_data:
+            args = []
+            kwargs = {}
+            returns = ''
+
+            for arg_idx in args_idx:
+                args.append(get_int_value_if_available(each_row[arg_idx]))
+
+            for kwarg_idx in kwargs_idx:
+                kwargs[header[kwarg_idx][7:]] = get_int_value_if_available(
+                    each_row[kwarg_idx])
+
+            returns = get_int_value_if_available(each_row[returns_idx])
+
+            all_test_data.append({
+                'args': args,
+                'kwargs': kwargs,
+                'returns': returns
+            })
+
+        return all_test_data
+
+def dict_to_obj(resp):
+    try:
+        if type(resp) is dict:
+            resp = json.dumps(resp)
+        else:
+            resp = str(resp, 'UTF-8')
+        return json.loads(resp, object_hook=lambda d: Namespace(**d))
+    except Exception as e:
+        return json.loads(
+            json.dumps({
+                'error': resp
+            }), object_hook=lambda d: Namespace(**d))
+
+def get_test_endpoints(file):
+    with open(settings.TEST_PAYLOAD_PATH + file, 'r') as fp:
+        endpoints = yaml.load(fp)
+    endpoints = dict_to_obj(endpoints)
+    return endpoints
