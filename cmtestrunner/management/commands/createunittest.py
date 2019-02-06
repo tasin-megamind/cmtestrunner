@@ -33,8 +33,8 @@ class Command(BaseCommand):
             f.write(content)
 
     def create_test_data_file(self, test_method):
-        if not os.path.exists(settings.BASE_DIR + '/utils/test/data/' + test_method + '.csv'):
-            os.mknod(settings.BASE_DIR + '/utils/test/data/' + test_method + '.csv')
+        if not os.path.exists(settings.BASE_DIR + '/utils/test/data/unittest/' + test_method + '.csv'):
+            os.mknod(settings.BASE_DIR + '/utils/test/data/unittest/' + test_method + '.csv')
 
     def get_template(self, file_name):
         template = open(self.templates_dir + file_name, 'r')
@@ -52,8 +52,7 @@ class Command(BaseCommand):
                 'unit_test_method_template.txt')
             test_import_template = self.get_template(
                 'unit_test_import_template.txt')
-            test_method = re.sub('test_[A-Za-z]+_', '', test_name)
-            self.create_test_data_file(test_method)
+            self.create_test_data_file(test_name)
 
             if current_tests:
                 test_method_template = test_method_template.split('<><><><><><><><><>')[1]
@@ -61,25 +60,29 @@ class Command(BaseCommand):
                 test_method_template = test_method_template.replace('<><><><><><><><><>', '')
 
             test_method_template = test_method_template.replace(
-                'test_name', test_name)
-            test_method_template = test_method_template.replace(
-                'test_data_file_name', test_method)
+                '<test_name>', test_name)
 
             if test_class:
                 test_import_template = test_import_template.replace(
-                    'test_object', test_class)
-                if not static_method:
-                    test_class += '()'
+                    '<test_object>', test_class)
                 test_method_template = test_method_template.replace(
-                    'test_class_name', test_class)
+                    '<test_class_name>', test_class)
             else:
-                test_import_template = test_import_template.replace(
-                    'test_object', test_method)
                 test_method_template = test_method_template.replace(
-                    'test_class_name.', '')
+                    '\'<test_class_name>\'', 'False')
+                test_import_template = test_import_template.replace(
+                    '<test_object>', test_name)
+            
+            if not static_method:
+                test_method_template = test_method_template.replace(
+                '<static>', 'False')
+            else:
+                test_method_template = test_method_template.replace(
+                '<static>', 'True')
+            
 
             test_method_template = test_method_template.replace(
-                'test_method_name', test_method)
+                '<test_method_name>', test_name)
             test_import_template = test_import_template.replace(
                 'import_path', import_path)
 

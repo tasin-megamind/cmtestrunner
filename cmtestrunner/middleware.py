@@ -185,20 +185,27 @@ def unit_test_formatter(file_name):
         all_test_data = []
         args_idx = []
         kwargs_idx = []
+        inits_idx = []
         returns_idx = None
 
         for index, each_header in enumerate(header):
-            if each_header[:6] == 'kwargs':
+            if each_header[:7] == 'kwargs_':
                 kwargs_idx.append(index)
+            elif each_header[:5] == 'init_':
+                inits_idx.append(index)
             elif each_header == 'returns':
                 returns_idx = index
             else:
                 args_idx.append(index)
 
         for each_row in test_data:
+            inits = []
             args = []
             kwargs = {}
             returns = ''
+
+            for init_idx in inits_idx:
+                inits.append(get_int_value_if_available(each_row[init_idx]))
 
             for arg_idx in args_idx:
                 args.append(get_int_value_if_available(each_row[arg_idx]))
@@ -210,6 +217,7 @@ def unit_test_formatter(file_name):
             returns = get_int_value_if_available(each_row[returns_idx])
 
             all_test_data.append({
+                'inits': inits,
                 'args': args,
                 'kwargs': kwargs,
                 'returns': returns

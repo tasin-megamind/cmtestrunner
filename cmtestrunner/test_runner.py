@@ -5,7 +5,8 @@ from django.utils import translation
 from .middleware import (request_response_formatter, get_all_locales,
                                    get_translations, reset_db, BOOL,
                                    set_auth_header, reset_auth_header, 
-                                   set_lang_header, set_reset_seq_query, set_all_models)
+                                   set_lang_header, set_reset_seq_query, set_all_models,
+                                   unit_test_formatter)
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
 import inspect
@@ -194,9 +195,34 @@ class TestRunner(TestCase):
             self.process_tests(**kwargs)
 
     def execute_unit_tests(self, **kwargs):
-        args = kwargs.get('test_data').get('args')
-        kwargs_ = kwargs.get('test_data').get('kwargs')
-        returns = kwargs.get('test_data').get('returns')
-        response = kwargs.get('test_method')(*args, **kwargs_)
+        # args = kwargs.get('test_data').get('args')
+        # kwargs_ = kwargs.get('test_data').get('kwargs')
+        # returns = kwargs.get('test_data').get('returns')
+        # response = kwargs.get('test_method')(*args, **kwargs_)
+        # TestRunner.total_test_cases += 1
 
-        self.assertEqual(str(response), str(returns))
+        # self.assertEqual(str(response), str(returns))
+
+        test_data_set = kwargs.get('test_data_set')
+        test_data = unit_test_formatter(test_data_set)
+        self.set_environment(kwargs.get('env'))
+
+        for each_test_data in test_data:
+            args = each_test_data.get('args')
+            inits = each_test_data.get('inits')
+            kwargs_ = each_test_data.get('kwargs')
+            returns = each_test_data.get('returns')
+            test_obj = kwargs.get('test_object')
+            if kwargs.get('test_class'):
+                test_class = getattr(test_obj, kwargs.get('test_class'))
+                test_method = getattr(test_class, kwargs.get('test_method'))
+                if kwargs.get('static'):
+                    test_obj = test_class.test_method
+                else:
+                    test_obj = test_class(*inits).test_method
+            else:
+                test_obj = getattr(test_obj, kwargs.get('test_method'))
+            response = test_obj(*args, **kwargs_)
+            TestRunner.total_test_cases += 1
+
+            self.assertEqual(str(response), str(returns))
