@@ -18,6 +18,7 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         self.create_dir(settings.BASE_DIR + '/utils')
         self.create_dir(settings.BASE_DIR + '/utils/test')
+        self.create_dir(settings.BASE_DIR + '/utils/test/reports')
         self.create_dir(settings.BASE_DIR + '/utils/test/data')
         self.create_dir(settings.BASE_DIR + '/utils/test/data/unittest')
         self.create_dir(settings.BASE_DIR + '/utils/test/data/snapshots')

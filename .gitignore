@@ -1,1 +1,5 @@
 .vscode/*
+dist/*
+cmtestrunner.egg-info/PKG-INFO
+cmtestrunner.egg-info/SOURCES.txt
+cmtestrunner.egg-info/requires.txt

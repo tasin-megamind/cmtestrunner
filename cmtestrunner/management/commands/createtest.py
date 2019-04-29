@@ -49,7 +49,7 @@ class Command(BaseCommand):
 
     def generate_tests(self):
         tests_template = self.get_template('tests_template.txt')
-        current_tests = open(self.base_dir + '/' + self.app_name + '/tests/test_api.py', 'r').read()
+        current_tests = open(self.base_dir + '/' + self.app_name + '/test_api.py', 'r').read()
 
         tests_template = tests_template.replace('<test_name>', self.test_name)
         if re.sub(r'#.*', '', current_tests).strip():
@@ -59,11 +59,11 @@ class Command(BaseCommand):
             tests_template = tests_template.replace('<app>', self.app_name)
             tests_template = tests_template.replace('<App>', self.app_name.capitalize())
 
-        self.update_file(self.base_dir + '/' + self.app_name + '/tests/test_api.py', tests_template)
+        self.update_file(self.base_dir + '/' + self.app_name + '/test_api.py', tests_template)
     
     def generate_test_methods(self):
         test_methods_template = self.get_template('test_methods_template.txt')
-        current_test_methods = open(self.base_dir + '/' + self.app_name + '/tests/test_methods.py', 'r').read()
+        current_test_methods = open(self.base_dir + '/' + self.app_name + '/test_methods.py', 'r').read()
 
         test_methods_template = test_methods_template.replace('<test_name>', self.test_name)
         test_methods_template = test_methods_template.replace('<request_method>', self.request_method)
@@ -73,7 +73,7 @@ class Command(BaseCommand):
         else:
             test_methods_template = test_methods_template.replace('<><><><><><><><><><>', '')
         
-        self.update_file(self.base_dir + '/' + self.app_name + '/tests/test_methods.py', test_methods_template)
+        self.update_file(self.base_dir + '/' + self.app_name + '/test_methods.py', test_methods_template)
 
     def generate_endpoints(self):
         endpoints_template = self.get_template('endpoints_template.txt')
@@ -90,9 +90,9 @@ class Command(BaseCommand):
         self.base_dir = settings.BASE_DIR
 
         self.test_url_alias = self.test_name.upper() + '_URL'
-        self.create_dir(self.base_dir + '/' + self.app_name + '/tests')
-        self.create_file(self.base_dir + '/' + self.app_name + '/tests/test_api.py')
-        self.create_file(self.base_dir + '/' + self.app_name + '/tests/test_methods.py')
+        # self.create_dir(self.base_dir + '/' + self.app_name + '/tests')
+        self.create_file(self.base_dir + '/' + self.app_name + '/test_api.py')
+        self.create_file(self.base_dir + '/' + self.app_name + '/test_methods.py')
 
         self.generate_endpoints()
         self.generate_test_methods()

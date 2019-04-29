@@ -20,11 +20,11 @@ class Command(BaseCommand):
         f.write(content)
 
     def create_skeleton(self):
-        self.create_dir(settings.BASE_DIR + '/' + self.app_name + '/tests')
-        self.create_file(settings.BASE_DIR + '/' + self.app_name + '/tests/test_unit.py')
+        # self.create_dir(settings.BASE_DIR + '/' + self.app_name + '/tests')
+        self.create_file(settings.BASE_DIR + '/' + self.app_name + '/test_unit.py')
 
     def write_to_unit_tests(self, content):
-        with open(settings.BASE_DIR + '/' + self.app_name + '/tests/test_unit.py', 'a') as f:
+        with open(settings.BASE_DIR + '/' + self.app_name + '/test_unit.py', 'a') as f:
             f.write(content)
 
     def write_to_unit_test_imports(self, content):
@@ -47,7 +47,7 @@ class Command(BaseCommand):
                          static_method=False):
 
         try:
-            current_tests = open(settings.BASE_DIR + '/' + self.app_name + '/tests/test_unit.py', 'r').read()
+            current_tests = open(settings.BASE_DIR + '/' + self.app_name + '/test_unit.py', 'r').read()
             test_method_template = self.get_template(
                 'unit_test_method_template.txt')
             test_import_template = self.get_template(

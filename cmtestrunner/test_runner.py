@@ -6,12 +6,20 @@ from .middleware import (request_response_formatter, get_all_locales,
                                    get_translations, reset_db, BOOL,
                                    set_auth_header, reset_auth_header, 
                                    set_lang_header, set_reset_seq_query, set_all_models,
-                                   unit_test_formatter)
+                                   unit_test_formatter, generate_failed_test_report, 
+                                   fail_log, process_sanpshot, fail_log,
+                                   generate_analytics)
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
 import inspect
 import traceback
-
+from rest_framework.test import RequestsClient
+from django.conf import settings
+import requests
+import re
+import json
+import os
+import csv
 
 class CustomTextTestResult(TextTestResult):
     def startTestRun(self):
@@ -20,6 +28,17 @@ class CustomTextTestResult(TextTestResult):
 
     def stopTestRun(self):
         self.testsRun = TestRunner.total_test_cases
+        
+        if not os.path.exists(settings.TEST_PAYLOAD_PATH + 'reports'):
+            os.makedirs(settings.TEST_PAYLOAD_PATH + 'reports')
+        f = open(settings.TEST_PAYLOAD_PATH + 'reports/api_test_report.txt', 'w')
+        for item in generate_analytics(fail_log):
+            f.write(item + '\n')
+
+        f = open(settings.TEST_PAYLOAD_PATH + 'reports/api_test_report_details.csv', 'w')
+        writer = csv.writer(f, delimiter=',')
+        writer.writerows(fail_log)
+
 
     def startTest(self, test):
         "Called when the given test is about to be run"
@@ -36,12 +55,14 @@ class CMTestRunner(DiscoverRunner):
 
 
 class TestRunner(TestCase):
-    client = APIClient()
+    client = False
     total_test_cases = 0
     create_default_user = lambda:None
     create_default_superuser = lambda:None
     create_default_superuser_token = lambda:None
     create_default_user_token = lambda:None
+    reset_db = lambda:None
+
 
     def set_test_vars(self, test_data):
         TestRunner.total_test_cases += 1
@@ -59,6 +80,7 @@ class TestRunner(TestCase):
                 reset_auth_header(TestRunner.client)
 
         self.exp_response = test_data.get('resp')
+        self.priority = self.request_body.pop('priority')
         self.test_id = self.request_body.pop('test_id')
         self.test_purpose = self.request_body.pop('comment')
         self.error_info = '\nTest ID: ' + str(
@@ -69,7 +91,7 @@ class TestRunner(TestCase):
         errors = error_info
         errors += 'Test Purpose: ' + self.test_purpose + '\n\n'
         errors += 'Requset Header: ' + str(
-            TestRunner.client._credentials) + '\n\n'
+            TestRunner.client.headers) + '\n\n'
         errors += 'Request Body: ' + str(self.request_body) + '\n\n'
         errors += 'Actual Response: \n\t' + str(self.response)[:200] + (
             ['', '....}'][len(str(self.response)) > 200]) + '\n\n'
@@ -97,8 +119,10 @@ class TestRunner(TestCase):
         return get_translations(accept_lang)
 
     def set_environment(self, envs):
-        TestRunner.client = APIClient()
-        reset_db()
+        TestRunner.client = self.get_client()
+        if settings.TEST_SERVER == 'http://testserver':
+            TestRunner.reset_db = reset_db
+        TestRunner.reset_db()
         translation.activate('en')
         for env in envs:
             args = inspect.getargspec(env).args
@@ -125,6 +149,12 @@ class TestRunner(TestCase):
     def get_response(self):
         return self.response
 
+    def get_client(self):
+        if settings.TEST_SERVER == 'http://testserver':
+            return RequestsClient()
+        else:
+            return requests.Session()
+
     # see CONTRIBUTING.md for test data formats.
     def verify_test_result(self, exp_response, test_id, accept_lang):
 
@@ -138,24 +168,34 @@ class TestRunner(TestCase):
             ) + ' =====>>>>> ' + self.test_data_set + ' >> ' + key + (
                 ' validation failed for language: %s.\n' % accept_lang)
 
+            exp_response[key] = value = process_sanpshot(value, self.response.get(key))
+
             errors = self.get_error(error_info, exp_response)
 
-            if type(value) is list:
-                self.assertEqual(
-                    self.response.get(key, None), value, msg=errors)
-            elif value == 'bool(true)':
-                self.assertTrue(self.response.get(key, None), msg=errors)
-            elif value == 'bool(false)':
-                self.assertFalse(
-                    BOOL.get(str(self.response.get(key, True)), True),
-                    msg=errors)
-            else:
-                self.assertEqual(
-                    str(self.response.get(key, None)),
-                    str(exp_response[key]),
-                    msg=errors)
+            try:
+                if type(value) is list:
+                    self.assertEqual(
+                        self.response.get(key, None), value, msg=errors)
+                elif value == 'bool(true)':
+                    self.assertTrue(self.response.get(key, None), msg=errors)
+                elif value == 'bool(false)':
+                    self.assertFalse(
+                        BOOL.get(str(self.response.get(key, True)), True),
+                        msg=errors)
+                else:
+                    self.assertEqual(
+                        str(self.response.get(key, None)),
+                        str(exp_response[key]),
+                        msg=errors)
+            except AssertionError:
+                generate_failed_test_report(
+                    self.test_data_set, self.priority, self.test_id, 
+                    self.test_purpose)
+                raise
+
 
     def set_test_attributes(self, **kwargs):
+        TestRunner.client = self.get_client()
         self.set_environment(kwargs.get('env', []))
         self.sub_test = kwargs.get('sub_test')
         self.accept_lang = kwargs.get('accept_lang')
@@ -195,13 +235,6 @@ class TestRunner(TestCase):
             self.process_tests(**kwargs)
 
     def execute_unit_tests(self, **kwargs):
-        # args = kwargs.get('test_data').get('args')
-        # kwargs_ = kwargs.get('test_data').get('kwargs')
-        # returns = kwargs.get('test_data').get('returns')
-        # response = kwargs.get('test_method')(*args, **kwargs_)
-        # TestRunner.total_test_cases += 1
-
-        # self.assertEqual(str(response), str(returns))
 
         test_data_set = kwargs.get('test_data_set')
         test_data = unit_test_formatter(test_data_set)
