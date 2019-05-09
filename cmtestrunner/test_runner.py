@@ -4,7 +4,7 @@ from django.utils.translation import ugettext as _
 from django.utils import translation
 from .middleware import (request_response_formatter, get_all_locales,
                                    get_translations, reset_db, BOOL,
-                                   set_auth_header, reset_auth_header, 
+                                   set_auth_header, reset_auth_header, set_custom_headers,
                                    set_lang_header, set_reset_seq_query, set_all_models,
                                    unit_test_formatter, generate_failed_test_report, 
                                    fail_log, process_sanpshot, fail_log,
@@ -86,6 +86,8 @@ class TestRunner(TestCase):
         self.error_info = '\nTest ID: ' + str(
             self.test_id) + ' =====>>>>> ' + self.test_data_set + \
             ' failed for language: %s.\n' % self.accept_lang
+        self.custom_headers = test_data.get('headers')
+        set_custom_headers(TestRunner.client, self.custom_headers)
 
     def get_error(self, error_info, exp_response):
         errors = error_info

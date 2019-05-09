@@ -3,7 +3,7 @@ import json
 import re
 import random
 import string
-import yaml
+from yaml import Loader, load
 from django.conf import settings
 from django.core import mail
 import os
@@ -84,6 +84,7 @@ def request_response_formatter(file):
         for row in test_data:
             req = {}
             resp = {}
+            headers = {}
             for index, each_header in enumerate(header):
                 if row[index] != 'N/A':
                     if each_header[:5] == 'resp_':                     
@@ -93,6 +94,8 @@ def request_response_formatter(file):
                         else:
                             resp[each_header[5:]] = parse_list_string(
                                 row[index])
+                    elif each_header[:7] == 'header_':
+                        headers[each_header[7:]] = row[index]
                     else:
                         if re.match(r'string\((.*)\)', row[index]):
                             req[each_header] = re.match(
@@ -107,7 +110,7 @@ def request_response_formatter(file):
                         else:
                             req[each_header] = parse_list_string(row[index])
 
-            result = {'req': req, 'resp': resp}
+            result = {'req': req, 'resp': resp, 'headers': headers}
             all_req_resp.append(result)
 
     return all_req_resp
@@ -130,7 +133,7 @@ def get_translations(file):
             settings.TEST_PAYLOAD_PATH + 'translation/' + file + '.yml',
             'r',
             encoding='utf8') as fp:
-        translations = yaml.load(fp)
+        translations = load(fp, Loader)
     return translations
 
 BOOL = {
@@ -157,6 +160,12 @@ def set_lang_header(client, lang):
     existing_headers = client.headers
     existing_headers['Accept-Language'] = lang
     client.headers.update(existing_headers)
+
+def set_custom_headers(client, headers):
+    existing_headers = client.headers
+    existing_headers = {**existing_headers, **headers}
+    client.headers.update(existing_headers)
+
 
 def format_response(response_obj):
     try:
@@ -248,7 +257,7 @@ def dict_to_obj(resp):
 
 def get_test_endpoints(file):
     with open(settings.TEST_PAYLOAD_PATH + file, 'r') as fp:
-        endpoints = yaml.load(fp)
+        endpoints = load(fp, Loader)
 
     for k, v in endpoints.items():
         endpoints[k] = settings.TEST_SERVER + v
