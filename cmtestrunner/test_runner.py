@@ -79,6 +79,16 @@ class TestRunner(TestCase):
             elif user_type == 'none':
                 reset_auth_header(TestRunner.client)
 
+        # user_type = self.request_body.pop('user_type')            
+        # if user_type == 'user':
+        #     self.set_user_auth()
+        # elif user_type == 'admin':
+        #     self.set_superuser_auth()
+        # elif user_type == 'invalid':
+        #     set_auth_header(TestRunner.client, 'XXXinvalid_tokenXXX')
+        # elif user_type == 'none':
+        #     reset_auth_header(TestRunner.client)
+
         self.exp_response = test_data.get('resp')
         self.priority = self.request_body.pop('priority')
         self.test_id = self.request_body.pop('test_id')
@@ -126,7 +136,9 @@ class TestRunner(TestCase):
             TestRunner.reset_db = reset_db
         TestRunner.reset_db()
         translation.activate('en')
+        self.reproduce_steps = []
         for env in envs:
+            self.reproduce_steps.append(env.__doc__)
             args = inspect.getargspec(env).args
             if args and args[0] == 'client':
                 env(TestRunner.client)
@@ -192,7 +204,7 @@ class TestRunner(TestCase):
             except AssertionError:
                 generate_failed_test_report(
                     self.test_data_set, self.priority, self.test_id, 
-                    self.test_purpose)
+                    self.test_purpose, self.reproduce_steps)
                 raise
 
 

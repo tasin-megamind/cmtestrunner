@@ -75,16 +75,47 @@ def parse_list_string(list_string):
             return list_string
 
 
+def simplify_data(data):
+    if data == 'N/A':
+        return False
+    if re.match(r'string\((.*)\)', data):
+        return re.match(r'string\((.*)\)', data)[1]
+    elif re.match(r'random\((.*, [0-9]+)\)', data):
+        matched = re.match(r'random\((.*), ([0-9]+)\)', data)
+        random_str = random.choice(matched[1]) * int(matched[2])
+        return random_str
+    elif re.match(r'integer\(([0-9]+)\)', data):
+        return int(re.match(r'integer\(([0-9]+)\)', data)[1])
+
+    else:
+        return parse_list_string(data)
+
+
 def request_response_formatter(file):
     with open(settings.TEST_DATA_PATH + file, 'r') as test_file:
         test_data = csv.reader(test_file, delimiter=',', quotechar='"')
         header = next(test_data)
         all_req_resp = []
 
+        # all_test_data = []
+        # request_idx = []
+        # response_idx = []
+        # header_idx = []
+
+        # for index, each_header in enumerate(header):
+        #     if each_header[:5] == 'resp_':
+        #         response_idx.append(index)
+        #     elif each_header[:7] == 'header_':
+        #         header_idx.append(index)
+        #     else:
+        #         request_idx.append(index)
+
+
         for row in test_data:
             req = {}
             resp = {}
             headers = {}
+<<<<<<< HEAD
             for index, each_header in enumerate(header):
                 if row[index] != 'N/A':
                     if each_header[:5] == 'resp_':                     
@@ -109,9 +140,69 @@ def request_response_formatter(file):
 
                         else:
                             req[each_header] = parse_list_string(row[index])
+=======
+
+            for index, each_header in enumerate(header):
+                simplified_data = simplify_data(row[index])
+                if simplified_data:
+                    if each_header[:5] == 'resp_':
+                        resp[each_header[5:]] = simplified_data
+                    elif each_header[:7] == 'header_':
+                        headers[each_header[7:]] = simplified_data
+                    else:
+                        req[each_header] = simplified_data
+>>>>>>> adds reproduce_steps & reactors code
 
             result = {'req': req, 'resp': resp, 'headers': headers}
             all_req_resp.append(result)
+
+            # for resp_idx in response_idx:
+            #     simplified_data = simplify_data(row[resp_idx])
+            #     if simplified_data:
+            #         resp[header[resp_idx]] = simplified_data
+
+            # for req_idx in request_idx:
+            #     simplified_data = simplify_data(row[req_idx])
+            #     if simplified_data:
+            #         req[header[resp_idx]] = simplified_data
+
+            # for head_idx in header_idx:
+            #     simplified_data = simplify_data(row[head_idx])
+            #     if simplified_data:
+            #         headers[header[resp_idx]] = simplified_data
+
+
+        # for row in test_data:
+        #     req = {}
+        #     resp = {}
+        #     headers = {}
+        #     for index, each_header in enumerate(header):
+        #         if row[index] != 'N/A':
+        #             if each_header[:5] == 'resp_':                     
+        #                 if re.match(r'string\((.*)\)', row[index]):
+        #                     resp[each_header[5:]] = re.match(
+        #                         r'string\((.*)\)', row[index])[1]
+        #                 else:
+        #                     resp[each_header[5:]] = parse_list_string(
+        #                         row[index])
+        #             elif each_header[:7] == 'header_':
+        #                 headers[each_header[7:]] = row[index]
+        #             else:
+        #                 if re.match(r'string\((.*)\)', row[index]):
+        #                     req[each_header] = re.match(
+        #                         r'string\((.*)\)', row[index])[1]
+        #                 elif re.match(r'random\((.*, [0-9]+)\)', row[index]):
+        #                     matched = re.match(r'random\((.*), ([0-9]+)\)', row[index])
+        #                     random_str = random.choice(matched[1]) * int(matched[2])
+        #                     req[each_header] = random_str
+        #                 elif re.match(r'integer\(([0-9]+)\)', row[index]):
+        #                     req[each_header] = int(re.match(r'integer\(([0-9]+)\)', row[index])[1])
+
+        #                 else:
+        #                     req[each_header] = parse_list_string(row[index])
+
+        #     result = {'req': req, 'resp': resp, 'headers': headers}
+        #     all_req_resp.append(result)
 
     return all_req_resp
 
@@ -266,8 +357,8 @@ def get_test_endpoints(file):
 
 fail_log = []
 
-def generate_failed_test_report(test_name, priority, test_id, purpose):
-    report = [test_name, test_id, priority, purpose]
+def generate_failed_test_report(test_name, priority, test_id, purpose, reproduce_steps):
+    report = [test_name, test_id, priority, purpose, reproduce_steps]
     fail_log.append(report)
 
 def generate_analytics(fail_log):
@@ -275,7 +366,6 @@ def generate_analytics(fail_log):
         return []
     fail_log = np.array(fail_log)
     priorities, counts = np.unique(fail_log[:, 2], return_counts=True)
-    counts = [str(x)+' tests failed of priority ' for x in counts]
     priorities = [str(x) for x in priorities]
     prior_count = list(zip(counts, priorities))
     return [' '.join(x) for x in prior_count]
