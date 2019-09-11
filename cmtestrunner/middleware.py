@@ -115,32 +115,6 @@ def request_response_formatter(file):
             req = {}
             resp = {}
             headers = {}
-<<<<<<< HEAD
-            for index, each_header in enumerate(header):
-                if row[index] != 'N/A':
-                    if each_header[:5] == 'resp_':                     
-                        if re.match(r'string\((.*)\)', row[index]):
-                            resp[each_header[5:]] = re.match(
-                                r'string\((.*)\)', row[index])[1]
-                        else:
-                            resp[each_header[5:]] = parse_list_string(
-                                row[index])
-                    elif each_header[:7] == 'header_':
-                        headers[each_header[7:]] = row[index]
-                    else:
-                        if re.match(r'string\((.*)\)', row[index]):
-                            req[each_header] = re.match(
-                                r'string\((.*)\)', row[index])[1]
-                        elif re.match(r'random\((.*, [0-9]+)\)', row[index]):
-                            matched = re.match(r'random\((.*), ([0-9]+)\)', row[index])
-                            random_str = random.choice(matched[1]) * int(matched[2])
-                            req[each_header] = random_str
-                        elif re.match(r'integer\(([0-9]+)\)', row[index]):
-                            req[each_header] = int(re.match(r'integer\(([0-9]+)\)', row[index])[1])
-
-                        else:
-                            req[each_header] = parse_list_string(row[index])
-=======
 
             for index, each_header in enumerate(header):
                 simplified_data = simplify_data(row[index])
@@ -151,7 +125,6 @@ def request_response_formatter(file):
                         headers[each_header[7:]] = simplified_data
                     else:
                         req[each_header] = simplified_data
->>>>>>> adds reproduce_steps & reactors code
 
             result = {'req': req, 'resp': resp, 'headers': headers}
             all_req_resp.append(result)
@@ -356,19 +329,28 @@ def get_test_endpoints(file):
     return endpoints
 
 fail_log = []
+reproduce_object = []
 
 def generate_failed_test_report(test_name, priority, test_id, purpose, reproduce_steps):
-    report = [test_name, test_id, priority, purpose, reproduce_steps]
-    fail_log.append(report)
+    report_ = [test_name, test_id, priority, purpose, reproduce_steps]
+    report = {
+        'test_id': test_id,
+        'test': purpose,
+        'reproduce_steps': reproduce_steps
+    }
+    fail_log.append(report_)
+    reproduce_object.append(report)
 
 def generate_analytics(fail_log):
     if not fail_log:
         return []
     fail_log = np.array(fail_log)
+    print(fail_log)
     priorities, counts = np.unique(fail_log[:, 2], return_counts=True)
-    priorities = [str(x) for x in priorities]
+    # priorities = [str(x) for x in priorities]
     prior_count = list(zip(counts, priorities))
-    return [' '.join(x) for x in prior_count]
+    # return [' '.join(x) for x in prior_count]
+    return prior_count
 
 
 def process_sanpshot(expected, actual):

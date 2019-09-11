@@ -7,7 +7,7 @@ from .middleware import (request_response_formatter, get_all_locales,
                                    set_auth_header, reset_auth_header, set_custom_headers,
                                    set_lang_header, set_reset_seq_query, set_all_models,
                                    unit_test_formatter, generate_failed_test_report, 
-                                   fail_log, process_sanpshot, fail_log,
+                                   fail_log, process_sanpshot, fail_log, reproduce_object,
                                    generate_analytics)
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
@@ -20,6 +20,7 @@ import re
 import json
 import os
 import csv
+from django.template.loader import render_to_string
 
 class CustomTextTestResult(TextTestResult):
     def startTestRun(self):
@@ -28,16 +29,31 @@ class CustomTextTestResult(TextTestResult):
 
     def stopTestRun(self):
         self.testsRun = TestRunner.total_test_cases
+        analytics = generate_analytics(fail_log)
+
+        rendered = render_to_string('report.html', {
+            'priority_fail_count': analytics,
+            'reproduce_objects': reproduce_object,
+            'success_count': self.testsRun - len(fail_log),
+            'success_percentage': (self.testsRun - len(fail_log))/self.testsRun * 100,
+            'fail_count': len(fail_log),
+            'fail_percentage': len(fail_log)/self.testsRun * 100,
+            'exception_count': 0,
+            'exception_percentage': 0
+        })
+
         
         if not os.path.exists(settings.TEST_PAYLOAD_PATH + 'reports'):
             os.makedirs(settings.TEST_PAYLOAD_PATH + 'reports')
-        f = open(settings.TEST_PAYLOAD_PATH + 'reports/api_test_report.txt', 'w')
-        for item in generate_analytics(fail_log):
-            f.write(item + '\n')
+        # f = open(settings.TEST_PAYLOAD_PATH + 'reports/api_test_report.csv', 'w')
+        # for item in generate_analytics(fail_log):
+        #     f.write(item + '\n')
 
-        f = open(settings.TEST_PAYLOAD_PATH + 'reports/api_test_report_details.csv', 'w')
-        writer = csv.writer(f, delimiter=',')
-        writer.writerows(fail_log)
+        # f = open(settings.TEST_PAYLOAD_PATH + 'reports/api_test_report_details.csv', 'w')
+        # writer = csv.writer(f, delimiter=',')
+        # writer.writerows(fail_log)
+        f = open(settings.TEST_PAYLOAD_PATH + 'reports/report.html', 'w')
+        f.write(rendered)
 
 
     def startTest(self, test):

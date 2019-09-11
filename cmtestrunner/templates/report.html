@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<title>Bootstrap 4, from LayoutIt!</title>
+
+	<meta name="description" content="Source code generated using layoutit.com">
+	<meta name="author" content="LayoutIt!">
+
+	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet"
+		integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+	<style>
+		body {
+			width: 60%;
+			padding-top: 50px;
+			margin: auto;
+		}
+	</style>
+
+</head>
+
+<body>
+
+	<div class="container-fluid">
+
+		<div class="row">
+			<div class="col-md-12">
+				<span class="badge badge-info">Summary</span>
+			</div>
+			<br/>
+			<br />
+			<div class="col-md-4">
+				<div class="card text-white bg-success">
+					<h5 class="card-header">
+						SUCCESS
+					</h5>
+					<div class="card-body">
+						<p class="card-text">
+							{{success_count|default:"999"}}
+						</p>
+					</div>
+					<div class="card-footer">
+						{{success_percentage|default:"100"}}%
+					</div>
+				</div>
+			</div>
+			<div class="col-md-4">
+				<div class="card text-white bg-danger">
+					<h5 class="card-header">
+						FAILED
+					</h5>
+					<div class="card-body">
+						<p class="card-text">
+							{{fail_count|default:"0"}}
+						</p>
+					</div>
+					<div class="card-footer">
+						{{fail_percentage|default:"0"}}%
+					</div>
+				</div>
+			</div>
+			<div class="col-md-4">
+				<div class="card text-white bg-warning">
+					<h5 class="card-header">
+						EXCEPTIONS
+					</h5>
+					<div class="card-body">
+						<p class="card-text">
+							{{exception_count|default:"0"}}
+						</p>
+					</div>
+					<div class="card-footer">
+						{{exception_percentage|default:"0"}}%
+					</div>
+				</div>
+			</div>
+		</div>
+		<br />
+		<div class="row">
+			<div class="col-md-12">
+				<span class="badge badge-danger">Priority Wise Fail Count</span>
+			</div>
+			<br/>
+			<br />
+			<div class="col-md-12">
+				<table class="table table-sm">
+					<thead>
+						<tr>
+							<th>
+								Priority
+							</th>
+							<th>
+								Failed
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+                        {% for row in priority_fail_count %}
+                            <tr>
+                                <td>{{row.0}}</td>
+                                <td>{{row.1}}</td>
+                            </tr>
+                        {% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<br />
+		
+		<div class="col-md-12">
+			<span class="badge badge-success">Reproduce Steps</span>
+		</div>
+		<br/>
+
+		<div id="card-3">
+
+			{% for obj in reproduce_objects %}
+				
+				<div class="card">
+					<div class="card-header">
+						<a class="card-link" data-toggle="collapse" data-parent="#card-3"
+							href="#test-id-{{obj.test_id}}">{{obj.test}}</a>
+					</div>    
+					
+					<div id="test-id-{{obj.test_id}}" class="collapse show">
+						<div class="card-body">
+							<ul>
+								{% for step in obj.reproduce_steps %}
+									<li class="list-item">
+										{{step}}
+									</li>
+								{% endfor %}
+							</ul>
+						</div>
+					</div>
+				</div>
+
+			{% endfor %}
+		</div>
+		
+	</div>
+                
+	<br /><br /><br />
+
+	<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+		integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous">
+	</script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+		integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous">
+	</script>
+
+	<!-- <script src="js/scripts.js"></script> -->
+</body>
+
+</html>
