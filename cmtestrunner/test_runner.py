@@ -7,8 +7,8 @@ from .middleware import (request_response_formatter, get_all_locales,
                                    set_auth_header, reset_auth_header, set_custom_headers,
                                    set_lang_header, set_reset_seq_query, set_all_models,
                                    unit_test_formatter, generate_failed_test_report, 
-                                   fail_log, process_sanpshot, fail_log, reproduce_object,
-                                   generate_analytics)
+                                   fail_log, parse_snapshot, fail_log, reproduce_object,
+                                   generate_analytics, exceptions)
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
 import inspect
@@ -35,11 +35,12 @@ class CustomTextTestResult(TextTestResult):
             'priority_fail_count': analytics,
             'reproduce_objects': reproduce_object,
             'success_count': self.testsRun - len(fail_log),
-            'success_percentage': (self.testsRun - len(fail_log))/self.testsRun * 100,
+            'success_percentage': (self.testsRun - len(fail_log))/(self.testsRun + len(exceptions)) * 100,
             'fail_count': len(fail_log),
-            'fail_percentage': len(fail_log)/self.testsRun * 100,
-            'exception_count': 0,
-            'exception_percentage': 0
+            'fail_percentage': len(fail_log)/(self.testsRun + len(exceptions)) * 100,
+            'exception_count': len(exceptions),
+            'exception_percentage': len(exceptions)/(self.testsRun + len(exceptions)) * 100,
+            'exception_details': exceptions
         })
 
         
@@ -78,6 +79,7 @@ class TestRunner(TestCase):
     create_default_superuser_token = lambda:None
     create_default_user_token = lambda:None
     reset_db = lambda:None
+    total_exceptions = 0
 
 
     def set_test_vars(self, test_data):
@@ -94,16 +96,8 @@ class TestRunner(TestCase):
                 set_auth_header(TestRunner.client, 'XXXinvalid_tokenXXX')
             elif user_type == 'none':
                 reset_auth_header(TestRunner.client)
-
-        # user_type = self.request_body.pop('user_type')            
-        # if user_type == 'user':
-        #     self.set_user_auth()
-        # elif user_type == 'admin':
-        #     self.set_superuser_auth()
-        # elif user_type == 'invalid':
-        #     set_auth_header(TestRunner.client, 'XXXinvalid_tokenXXX')
-        # elif user_type == 'none':
-        #     reset_auth_header(TestRunner.client)
+     
+        
 
         self.exp_response = test_data.get('resp')
         self.priority = self.request_body.pop('priority')
@@ -153,13 +147,17 @@ class TestRunner(TestCase):
         TestRunner.reset_db()
         translation.activate('en')
         self.reproduce_steps = []
-        for env in envs:
-            self.reproduce_steps.append(env.__doc__)
-            args = inspect.getargspec(env).args
-            if args and args[0] == 'client':
-                env(TestRunner.client)
-            else:
-                env()
+        try:
+            for env in envs:
+                self.reproduce_steps.append(env.__doc__)
+                args = inspect.getargspec(env).args
+                if args and args[0] == 'client':
+                    env(TestRunner.client)
+                else:
+                    env()
+        except Exception as e:
+            raise Exception(env.__doc__ + ':: ' + str(e))
+
 
     def set_headers(self, **kwargs):
         accept_lang = kwargs.get('accept_lang')
@@ -189,6 +187,7 @@ class TestRunner(TestCase):
     def verify_test_result(self, exp_response, test_id, accept_lang):
 
         for key, value in exp_response.items():
+            
             if accept_lang != 'en':
                 exp_response[key] = self.format_expected_response(
                     exp_response[key], accept_lang)
@@ -197,8 +196,9 @@ class TestRunner(TestCase):
                 test_id
             ) + ' =====>>>>> ' + self.test_data_set + ' >> ' + key + (
                 ' validation failed for language: %s.\n' % accept_lang)
-
-            exp_response[key] = value = process_sanpshot(value, self.response.get(key))
+            
+            exp_response[key] = value = parse_snapshot(value, self.response.get(key))
+            
 
             errors = self.get_error(error_info, exp_response)
 
@@ -219,8 +219,11 @@ class TestRunner(TestCase):
                         msg=errors)
             except AssertionError:
                 generate_failed_test_report(
-                    self.test_data_set, self.priority, self.test_id, 
-                    self.test_purpose, self.reproduce_steps)
+                    test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
+                    purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
+                    request_body=self.request_body, response=self.response, 
+                    request_header=self.custom_headers,
+                    expected_response=self.exp_response)
                 raise
 
 
@@ -234,7 +237,16 @@ class TestRunner(TestCase):
         self.test_data = request_response_formatter(self.test_data_set)
 
     def process_tests(self, **kwargs):
-        self.set_test_attributes(**kwargs)
+        try:
+            self.set_test_attributes(**kwargs)
+        except Exception as e:
+            exceptions.append({
+                'test_method': kwargs.get('test_method').__name__,
+                'details': e
+            })
+            raise
+
+            
         for each_test_data in self.test_data:
             self.set_test_vars(each_test_data)
             try:

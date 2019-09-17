@@ -86,7 +86,6 @@ def simplify_data(data):
         return random_str
     elif re.match(r'integer\(([0-9]+)\)', data):
         return int(re.match(r'integer\(([0-9]+)\)', data)[1])
-
     else:
         return parse_list_string(data)
 
@@ -96,20 +95,6 @@ def request_response_formatter(file):
         test_data = csv.reader(test_file, delimiter=',', quotechar='"')
         header = next(test_data)
         all_req_resp = []
-
-        # all_test_data = []
-        # request_idx = []
-        # response_idx = []
-        # header_idx = []
-
-        # for index, each_header in enumerate(header):
-        #     if each_header[:5] == 'resp_':
-        #         response_idx.append(index)
-        #     elif each_header[:7] == 'header_':
-        #         header_idx.append(index)
-        #     else:
-        #         request_idx.append(index)
-
 
         for row in test_data:
             req = {}
@@ -124,58 +109,14 @@ def request_response_formatter(file):
                     elif each_header[:7] == 'header_':
                         headers[each_header[7:]] = simplified_data
                     else:
-                        req[each_header] = simplified_data
+                        parsed_obj = parse_snapshot(simplified_data)
+                        if type(parsed_obj) is dict:
+                            req.update(parsed_obj)
+                        else:
+                            req[each_header] = simplified_data
 
             result = {'req': req, 'resp': resp, 'headers': headers}
             all_req_resp.append(result)
-
-            # for resp_idx in response_idx:
-            #     simplified_data = simplify_data(row[resp_idx])
-            #     if simplified_data:
-            #         resp[header[resp_idx]] = simplified_data
-
-            # for req_idx in request_idx:
-            #     simplified_data = simplify_data(row[req_idx])
-            #     if simplified_data:
-            #         req[header[resp_idx]] = simplified_data
-
-            # for head_idx in header_idx:
-            #     simplified_data = simplify_data(row[head_idx])
-            #     if simplified_data:
-            #         headers[header[resp_idx]] = simplified_data
-
-
-        # for row in test_data:
-        #     req = {}
-        #     resp = {}
-        #     headers = {}
-        #     for index, each_header in enumerate(header):
-        #         if row[index] != 'N/A':
-        #             if each_header[:5] == 'resp_':                     
-        #                 if re.match(r'string\((.*)\)', row[index]):
-        #                     resp[each_header[5:]] = re.match(
-        #                         r'string\((.*)\)', row[index])[1]
-        #                 else:
-        #                     resp[each_header[5:]] = parse_list_string(
-        #                         row[index])
-        #             elif each_header[:7] == 'header_':
-        #                 headers[each_header[7:]] = row[index]
-        #             else:
-        #                 if re.match(r'string\((.*)\)', row[index]):
-        #                     req[each_header] = re.match(
-        #                         r'string\((.*)\)', row[index])[1]
-        #                 elif re.match(r'random\((.*, [0-9]+)\)', row[index]):
-        #                     matched = re.match(r'random\((.*), ([0-9]+)\)', row[index])
-        #                     random_str = random.choice(matched[1]) * int(matched[2])
-        #                     req[each_header] = random_str
-        #                 elif re.match(r'integer\(([0-9]+)\)', row[index]):
-        #                     req[each_header] = int(re.match(r'integer\(([0-9]+)\)', row[index])[1])
-
-        #                 else:
-        #                     req[each_header] = parse_list_string(row[index])
-
-        #     result = {'req': req, 'resp': resp, 'headers': headers}
-        #     all_req_resp.append(result)
 
     return all_req_resp
 
@@ -330,13 +271,24 @@ def get_test_endpoints(file):
 
 fail_log = []
 reproduce_object = []
+exceptions = []
 
-def generate_failed_test_report(test_name, priority, test_id, purpose, reproduce_steps):
-    report_ = [test_name, test_id, priority, purpose, reproduce_steps]
+
+def generate_failed_test_report(**kwargs):
+    # kwargs = dict_to_obj(kwargs)
+    report_ = [
+                kwargs.get('test_name'), kwargs.get('test_id'), 
+                kwargs.get('priority'), kwargs.get('purpose'), 
+                kwargs.get('reproduce_steps')
+            ]
     report = {
-        'test_id': test_id,
-        'test': purpose,
-        'reproduce_steps': reproduce_steps
+        'test_id': kwargs.get('test_id'),
+        'test': kwargs.get('purpose'),
+        'reproduce_steps': kwargs.get('reproduce_steps'),
+        'request_body': json.dumps(kwargs.get('request_body'), indent=4, sort_keys=False),
+        'request_header': json.dumps(kwargs.get('request_header'), indent=4, sort_keys=False),
+        'response': json.dumps(kwargs.get('response'), indent=4, sort_keys=False),
+        'expected_response': json.dumps(kwargs.get('expected_response'), indent=4, sort_keys=False),
     }
     fail_log.append(report_)
     reproduce_object.append(report)
@@ -345,7 +297,6 @@ def generate_analytics(fail_log):
     if not fail_log:
         return []
     fail_log = np.array(fail_log)
-    print(fail_log)
     priorities, counts = np.unique(fail_log[:, 2], return_counts=True)
     # priorities = [str(x) for x in priorities]
     prior_count = list(zip(counts, priorities))
@@ -353,19 +304,71 @@ def generate_analytics(fail_log):
     return prior_count
 
 
-def process_sanpshot(expected, actual):
-    if re.match(r'snapshot\((.*\.json)\)', expected):
-        snapshot_file = re.match(r'snapshot\((.*\.json)\)', expected)[1]
-        if not os.path.isfile(
+
+def parse_snapshot(snapshot, actual=None):
+    matched = re.match(r'snapshot\((.*\.json)\)((\.)(.*))?', snapshot)
+    if matched:
+        snapshot_file = matched[1]
+        
+        if os.path.isfile(
             settings.TEST_DATA_PATH + 'snapshots/' + snapshot_file):
             f = open(settings.TEST_DATA_PATH + 'snapshots/' +
-                                snapshot_file, 'w')
-            json.dump(actual, f, indent=4)
-            return actual
-            
+                                snapshot_file, 'r')
+
+            if matched[4]:
+                keys = matched[4].split('=')[0].split('.')
+                value = simplify_data(matched[4].split('=')[1])
+                temp = [json.load(f)]
+                for index, key in enumerate(keys):
+                    temp.append(temp[index].get(key))
+                temp[-1] = value
+                count = len(temp) - 1
+                while(count):
+                    temp[count-1][next(iter(temp[count-1]))] = temp[count]
+                    count-=1
+                return temp[0]
+            else:
+                try:
+                    return json.load(f)
+                except Exception:
+                    return False
         else:
-            with open(settings.TEST_DATA_PATH + 'snapshots/' +
-                        snapshot_file) as f:
-                return json.load(f)
+            f = open(settings.TEST_DATA_PATH + 'snapshots/' +
+                                snapshot_file, 'w', encoding='utf-8')
+            if actual:
+                json.dump(actual, f, ensure_ascii=False, indent=4)
+
+
+        
+
+    return snapshot
+
+
+
+def process_snapshot(expected, actual):
+
+    parsed_object = parse_snapshot(expected)
+    if not matched_obj:
+        f = open(settings.TEST_DATA_PATH + 'snapshots/' +
+                                matched_obj[1], 'w')
+        json.dump(actual, f, indent=4)
+
+        return actual
     
-    return expected
+    return parsed_object
+
+    # if re.match(r'snapshot\((.*\.json)\)', expected):
+    #     snapshot_file = re.match(r'snapshot\((.*\.json)\)', expected)[1]
+    #     if not os.path.isfile(
+    #         settings.TEST_DATA_PATH + 'snapshots/' + snapshot_file):
+    #         f = open(settings.TEST_DATA_PATH + 'snapshots/' +
+    #                             snapshot_file, 'w')
+    #         json.dump(actual, f, indent=4)
+    #         return actual
+            
+    #     else:
+    #         with open(settings.TEST_DATA_PATH + 'snapshots/' +
+    #                     snapshot_file, 'r') as f:
+    #             return json.load(f)
+    
+    # return expected
