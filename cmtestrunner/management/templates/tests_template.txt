@@ -3,6 +3,11 @@ import <app>.test_methods as test_methods
 from cmtestrunner import TestRunner
 
 class Test<App>API(TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        TestRunner.package = __package__
+
     def setUp(self):
         self.test_runner = TestRunner()
 <><><><><><><><><><>

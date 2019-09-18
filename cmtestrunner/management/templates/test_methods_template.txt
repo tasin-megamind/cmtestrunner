@@ -1,13 +1,12 @@
-from cmtestrunner import get_test_endpoints, process_request_response
+from cmtestrunner import get_test_endpoints, process_request_response, TestRunner
 
-ENDPOINTS = get_test_endpoints('endpoints.yml')
 <><><><><><><><><><>
 
 def <test_name>(**kwargs):
     response = process_request_response(
         client=kwargs.get('client'),
         method='<request_method>',
-        url=ENDPOINTS.<test_url_alias>,
+        url=TestRunner.ENDPOINTS.<test_url_alias>,
         data=kwargs.get('request_body')
     )
 

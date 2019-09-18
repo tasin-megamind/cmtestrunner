@@ -18,6 +18,7 @@ import numpy as np
 reset_seq_query = ''
 all_models = []
 
+
 def get_random_string(size):
     chars = string.ascii_uppercase + string.digits + string.ascii_lowercase
     return ''.join(random.choice(chars) for _ in range(size))
@@ -337,6 +338,7 @@ def parse_snapshot(snapshot, actual=None):
                                 snapshot_file, 'w', encoding='utf-8')
             if actual:
                 json.dump(actual, f, ensure_ascii=False, indent=4)
+                return actual
 
 
         
@@ -345,17 +347,17 @@ def parse_snapshot(snapshot, actual=None):
 
 
 
-def process_snapshot(expected, actual):
+# def process_snapshot(expected, actual):
 
-    parsed_object = parse_snapshot(expected)
-    if not matched_obj:
-        f = open(settings.TEST_DATA_PATH + 'snapshots/' +
-                                matched_obj[1], 'w')
-        json.dump(actual, f, indent=4)
+#     parsed_object = parse_snapshot(expected)
+#     if not matched_obj:
+#         f = open(settings.TEST_DATA_PATH + 'snapshots/' +
+#                                 matched_obj[1], 'w')
+#         json.dump(actual, f, indent=4)
 
-        return actual
+#         return actual
     
-    return parsed_object
+#     return parsed_object
 
     # if re.match(r'snapshot\((.*\.json)\)', expected):
     #     snapshot_file = re.match(r'snapshot\((.*\.json)\)', expected)[1]

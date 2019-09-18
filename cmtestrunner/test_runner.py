@@ -8,7 +8,7 @@ from .middleware import (request_response_formatter, get_all_locales,
                                    set_lang_header, set_reset_seq_query, set_all_models,
                                    unit_test_formatter, generate_failed_test_report, 
                                    fail_log, parse_snapshot, fail_log, reproduce_object,
-                                   generate_analytics, exceptions)
+                                   generate_analytics, exceptions, get_test_endpoints)
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
 import inspect
@@ -80,6 +80,8 @@ class TestRunner(TestCase):
     create_default_user_token = lambda:None
     reset_db = lambda:None
     total_exceptions = 0
+    package = None
+    ENDPOINTS = None
 
 
     def set_test_vars(self, test_data):
@@ -140,7 +142,13 @@ class TestRunner(TestCase):
     def load_translations(self, accept_lang):
         return get_translations(accept_lang)
 
+
+    def set_endpoints(self):
+        TestRunner.ENDPOINTS = get_test_endpoints('endpoints.yml')
+
     def set_environment(self, envs):
+        settings.TEST_SERVER = getattr(settings, TestRunner.package.upper() + '_BASE_URL')
+        self.set_endpoints()
         TestRunner.client = self.get_client()
         if settings.TEST_SERVER == 'http://testserver':
             TestRunner.reset_db = reset_db
@@ -187,7 +195,6 @@ class TestRunner(TestCase):
     def verify_test_result(self, exp_response, test_id, accept_lang):
 
         for key, value in exp_response.items():
-            
             if accept_lang != 'en':
                 exp_response[key] = self.format_expected_response(
                     exp_response[key], accept_lang)
@@ -258,7 +265,8 @@ class TestRunner(TestCase):
                 self.response = kwargs.get('test_method')(
                     client=TestRunner.client,
                     request_body=self.request_body,
-                    accept_lang=self.accept_lang)
+                    accept_lang=self.accept_lang,
+                    )
 
                 with self.sub_test():
                     self.verify_test_result(self.exp_response, self.test_id,
@@ -270,6 +278,7 @@ class TestRunner(TestCase):
                     self.assertEqual(None, e, msg=errors)
 
     def execute_tests(self, **kwargs):
+        
         locales = get_all_locales()
         locales.append('en')
         for each_lang in locales:
