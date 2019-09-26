@@ -22,6 +22,7 @@ import os
 import csv
 from django.template.loader import render_to_string
 
+
 class CustomTextTestResult(TextTestResult):
     def startTestRun(self):
         set_reset_seq_query()
@@ -30,16 +31,17 @@ class CustomTextTestResult(TextTestResult):
     def stopTestRun(self):
         self.testsRun = TestRunner.total_test_cases
         analytics = generate_analytics(fail_log)
+        TestRunner.query_executor.quit()
 
         rendered = render_to_string('report.html', {
             'priority_fail_count': analytics,
             'reproduce_objects': reproduce_object,
             'success_count': self.testsRun - len(fail_log),
-            'success_percentage': (self.testsRun - len(fail_log))/(self.testsRun + len(exceptions)) * 100,
+            'success_percentage': float("%0.2f"%((self.testsRun - len(fail_log))/(self.testsRun + len(exceptions)) * 100)),
             'fail_count': len(fail_log),
-            'fail_percentage': len(fail_log)/(self.testsRun + len(exceptions)) * 100,
+            'fail_percentage': float("%0.2f"%(len(fail_log)/(self.testsRun + len(exceptions)) * 100)),
             'exception_count': len(exceptions),
-            'exception_percentage': len(exceptions)/(self.testsRun + len(exceptions)) * 100,
+            'exception_percentage': float("%0.2f"%(len(exceptions)/(self.testsRun + len(exceptions)) * 100)),
             'exception_details': exceptions
         })
 
@@ -82,7 +84,16 @@ class TestRunner(TestCase):
     total_exceptions = 0
     package = None
     ENDPOINTS = None
+    query_executor = None
 
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        TestRunner.reset_db = kwargs.get('reset_db')
+        TestRunner.query_executor = kwargs.get('query_executor')
+
+    def set_package(self, package):
+        TestRunner.package = package
 
     def set_test_vars(self, test_data):
         TestRunner.total_test_cases += 1
@@ -152,7 +163,7 @@ class TestRunner(TestCase):
         TestRunner.client = self.get_client()
         if settings.TEST_SERVER == 'http://testserver':
             TestRunner.reset_db = reset_db
-        TestRunner.reset_db()
+        TestRunner.reset_db(TestRunner.query_executor)
         translation.activate('en')
         self.reproduce_steps = []
         try:
@@ -230,7 +241,8 @@ class TestRunner(TestCase):
                     purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
                     request_body=self.request_body, response=self.response, 
                     request_header=self.custom_headers,
-                    expected_response=self.exp_response)
+                    expected_response=self.exp_response,
+                    error_info=error_info)
                 raise
 
 

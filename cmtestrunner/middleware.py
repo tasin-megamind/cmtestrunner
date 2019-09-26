@@ -19,6 +19,16 @@ reset_seq_query = ''
 all_models = []
 
 
+class CustomDict(dict):
+
+    def __getattr__(self, key):
+        return self[key]
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+
+
 def get_random_string(size):
     chars = string.ascii_uppercase + string.digits + string.ascii_lowercase
     return ''.join(random.choice(chars) for _ in range(size))
@@ -128,7 +138,7 @@ def get_all_locales():
         all_locales += os.listdir(locales_dir)
     return all_locales
 
-def reset_db():
+def reset_db(*arg):
     for model in all_models:
         model.objects.all().delete()
     cursor = connection.cursor()
@@ -254,12 +264,12 @@ def dict_to_obj(resp):
             resp = json.dumps(resp)
         else:
             resp = str(resp, 'UTF-8')
-        return json.loads(resp, object_hook=lambda d: Namespace(**d))
+        return json.loads(resp, object_hook=lambda d: CustomDict(d))
     except Exception as e:
         return json.loads(
             json.dumps({
                 'error': resp
-            }), object_hook=lambda d: Namespace(**d))
+            }), object_hook=lambda d: CustomDict(d))
 
 def get_test_endpoints(file):
     with open(settings.TEST_PAYLOAD_PATH + file, 'r') as fp:
@@ -290,6 +300,7 @@ def generate_failed_test_report(**kwargs):
         'request_header': json.dumps(kwargs.get('request_header'), indent=4, sort_keys=False),
         'response': json.dumps(kwargs.get('response'), indent=4, sort_keys=False),
         'expected_response': json.dumps(kwargs.get('expected_response'), indent=4, sort_keys=False),
+        'error_info': kwargs.get('error_info'),
     }
     fail_log.append(report_)
     reproduce_object.append(report)
