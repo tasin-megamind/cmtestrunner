@@ -75,7 +75,7 @@ def parse_list_string(list_string):
     try:
         int(list_string_)
         return list_string_
-    except Exception as e:
+    except Exception:
         special_str = '&!$%^*&@~`'
         try:
             list_string_ = list_string_.replace("\\'", special_str)
@@ -186,7 +186,7 @@ def set_custom_headers(client, headers):
 def format_response(response_obj):
     try:
         response = json.loads(response_obj.content)
-    except Exception as e:
+    except Exception:
         response = {}
     if type(response) is list:
         response = {'content': response}
@@ -333,7 +333,7 @@ def parse_snapshot(snapshot, actual=None):
                 temp = [json.load(f)]
                 for index, key in enumerate(keys):
                     temp.append(temp[index].get(key))
-                temp[-1] = value
+                temp[-1] = parse_list_string(value)
                 count = len(temp) - 1
                 while(count):
                     temp[count-1][next(iter(temp[count-1]))] = temp[count]

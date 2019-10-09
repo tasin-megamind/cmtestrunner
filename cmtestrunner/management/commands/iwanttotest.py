@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 import re
 import os
 from django.conf import settings
+import pkg_resources
 
 class Command(BaseCommand):
     help = 'creates test skeleton for API testing'
@@ -29,6 +30,17 @@ class Command(BaseCommand):
         self.create_file(settings.BASE_DIR + '/utils/__init__.py')
         self.create_file(settings.BASE_DIR + '/utils/test/endpoints.yml')
         self.create_file(settings.BASE_DIR + '/utils/test/unittest.py')
+        self.create_file(settings.BASE_DIR + '/utils/test/test_runner.py')
+        self.create_file(settings.BASE_DIR + '/utils/test/middleware.py')
+
+        templates_dir = pkg_resources.resource_filename('cmtestrunner', 'management/templates/')
+        test_runner_content = None
+        with open(templates_dir + 'test_runner_template.txt', 'r') as f:
+            test_runner_content = f.read()
+
+        with open(settings.BASE_DIR + '/utils/test/test_runner.py' , 'w') as f:
+            f.write(test_runner_content)
+
 
         self.stdout.write(
                 self.style.SUCCESS('Successfully created test skeleton'))

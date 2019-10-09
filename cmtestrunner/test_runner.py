@@ -87,13 +87,6 @@ class TestRunner(TestCase):
     query_executor = None
 
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        TestRunner.reset_db = kwargs.get('reset_db')
-        TestRunner.query_executor = kwargs.get('query_executor')
-
-    def set_package(self, package):
-        TestRunner.package = package
 
     def set_test_vars(self, test_data):
         TestRunner.total_test_cases += 1
@@ -158,7 +151,7 @@ class TestRunner(TestCase):
         TestRunner.ENDPOINTS = get_test_endpoints('endpoints.yml')
 
     def set_environment(self, envs):
-        settings.TEST_SERVER = getattr(settings, TestRunner.package.upper() + '_BASE_URL')
+        settings.TEST_SERVER = getattr(settings, self.package.upper() + '_BASE_URL')
         self.set_endpoints()
         TestRunner.client = self.get_client()
         if settings.TEST_SERVER == 'http://testserver':
@@ -280,17 +273,16 @@ class TestRunner(TestCase):
                     accept_lang=self.accept_lang,
                     )
 
-                with self.sub_test():
+                with self.subTest():
                     self.verify_test_result(self.exp_response, self.test_id,
                                             self.accept_lang)
             except Exception as e:
                 print(traceback.format_exc())
                 errors = self.get_error(self.error_info, self.exp_response)
-                with self.sub_test():
+                with self.subTest():
                     self.assertEqual(None, e, msg=errors)
 
     def execute_tests(self, **kwargs):
-        
         locales = get_all_locales()
         locales.append('en')
         for each_lang in locales:
