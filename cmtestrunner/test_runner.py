@@ -21,6 +21,7 @@ import json
 import os
 import csv
 from django.template.loader import render_to_string
+from .object_manager import ObjectManager
 
 
 class CustomTextTestResult(TextTestResult):
@@ -198,6 +199,8 @@ class TestRunner(TestCase):
     # see CONTRIBUTING.md for test data formats.
     def verify_test_result(self, exp_response, test_id, accept_lang):
 
+        response_ = {}
+
         for key, value in exp_response.items():
             if accept_lang != 'en':
                 exp_response[key] = self.format_expected_response(
@@ -209,34 +212,35 @@ class TestRunner(TestCase):
                 ' validation failed for language: %s.\n' % accept_lang)
             
             exp_response[key] = value = parse_snapshot(value, self.response.get(key))
+            response_[key] = self.response.get(key)
+        
+        self.response = response_
+
             
+        with open(settings.TEST_PAYLOAD_PATH + 'actual.json', 'w') as f:
+                json.dump(self.response, f, indent=4)
 
-            errors = self.get_error(error_info, exp_response)
+        with open(settings.TEST_PAYLOAD_PATH + 'expected.json', 'w') as f:
+            json.dump(exp_response, f, indent=4)
 
-            try:
-                if type(value) is list:
-                    self.assertEqual(
-                        self.response.get(key, None), value, msg=errors)
-                elif value == 'bool(true)':
-                    self.assertTrue(self.response.get(key, None), msg=errors)
-                elif value == 'bool(false)':
-                    self.assertFalse(
-                        BOOL.get(str(self.response.get(key, True)), True),
-                        msg=errors)
-                else:
-                    self.assertEqual(
-                        str(self.response.get(key, None)),
-                        str(exp_response[key]),
-                        msg=errors)
-            except AssertionError:
-                generate_failed_test_report(
-                    test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
-                    purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
-                    request_body=self.request_body, response=self.response, 
-                    request_header=self.custom_headers,
-                    expected_response=self.exp_response,
-                    error_info=error_info)
-                raise
+
+        object_manager = ObjectManager(self.response, exp_response)
+        self.response, exp_response = object_manager.get_converted()
+        self.is_matched = object_manager.is_matched()
+        errors = self.get_error(error_info, exp_response)
+        
+        try:
+            self.assertEqual(self.is_matched, True, msg=errors)
+        except AssertionError:
+            generate_failed_test_report(
+                test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
+                purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
+                request_body=self.request_body, response=self.response, 
+                request_header=self.custom_headers,
+                expected_response=exp_response,
+                # error_info=error_info
+                )
+            raise
 
 
     def set_test_attributes(self, **kwargs):

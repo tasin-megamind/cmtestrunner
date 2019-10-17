@@ -97,6 +97,8 @@ def simplify_data(data):
         return random_str
     elif re.match(r'integer\(([0-9]+)\)', data):
         return int(re.match(r'integer\(([0-9]+)\)', data)[1])
+    elif re.match(r'bool\((.*)\)', data):
+        return BOOL.get(re.match(r'bool\((.*)\)', data)[1])
     else:
         return parse_list_string(data)
 
@@ -296,10 +298,10 @@ def generate_failed_test_report(**kwargs):
         'test_id': kwargs.get('test_id'),
         'test': kwargs.get('purpose'),
         'reproduce_steps': kwargs.get('reproduce_steps'),
-        'request_body': json.dumps(kwargs.get('request_body'), indent=4, sort_keys=False),
-        'request_header': json.dumps(kwargs.get('request_header'), indent=4, sort_keys=False),
-        'response': json.dumps(kwargs.get('response'), indent=4, sort_keys=False),
-        'expected_response': json.dumps(kwargs.get('expected_response'), indent=4, sort_keys=False),
+        'request_body': json.dumps(kwargs.get('request_body'), indent=4, sort_keys=False, ensure_ascii=False),
+        'request_header': json.dumps(kwargs.get('request_header'), indent=4, sort_keys=False, ensure_ascii=False),
+        'response': json.dumps(kwargs.get('response'), indent=4, sort_keys=False, ensure_ascii=False),
+        'expected_response': json.dumps(kwargs.get('expected_response'), indent=4, sort_keys=False, ensure_ascii=False),
         'error_info': kwargs.get('error_info'),
     }
     fail_log.append(report_)
@@ -318,7 +320,7 @@ def generate_analytics(fail_log):
 
 
 def parse_snapshot(snapshot, actual=None):
-    matched = re.match(r'snapshot\((.*\.json)\)((\.)(.*))?', snapshot)
+    matched = re.match(r'snapshot\((.*\.json)\)((\.)(.*))?', str(snapshot))
     if matched:
         snapshot_file = matched[1]
         

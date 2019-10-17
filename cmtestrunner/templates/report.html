@@ -162,7 +162,7 @@
 													View Details
 											</button>										
 											<div class="modal fade" id="modal-container-{{obj.test_id}}" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-												<div class="modal-dialog" role="document">
+												<div class="modal-dialog modal-xl" role="document">
 													<div class="modal-content">
 														<div class="modal-header">
 															<h5 class="modal-title" id="myModalLabel">
@@ -173,21 +173,28 @@
 															</button>
 														</div>
 														<div class="modal-body">
-															<h6 class="text-primary">Error Info</h6>
-															<p class="text-danger" style="white-space: pre-wrap">
-																{{obj.error_info}}
-															</p>
 															<h6 class="text-primary">Request Body</h6>
-															<p class="text-info" style="white-space: pre-wrap">{{obj.request_body}}</p>
+															<p class="text-info" style="white-space: pre-wrap">{{obj.request_body|safe}}</p>
 															<h6 class="text-primary">Header</h6>
-															<p class="text-info" style="white-space: pre-wrap">{{obj.request_header}}</p>
-															<h6 class="text-primary">Response</h6>
-															<p class="text-info" style="white-space: pre-wrap">{{obj.response}}</p>
-															<h6 class="text-primary">Expected Response</h6>
-															<p class="text-info" style="white-space: pre-wrap">
-																{{obj.expected_response}}
-															</p>
-															
+															<p class="text-info" style="white-space: pre-wrap">{{obj.request_header|safe}}</p>
+															<div class="container">
+																<div class="row">
+																	<div class="col-md-6">
+																		<h6 class="text-primary">Response</h6>
+																		<small class="text-info" style="white-space: pre-wrap">
+																			{{obj.response|safe}}
+																		</small>
+																			
+																	</div>
+																	<div class="col-md-6">
+																		<h6 class="text-primary">Expected Response</h6>
+																		<small class="text-info" style="white-space: pre-wrap">
+																			{{obj.expected_response|safe}}
+																		</small>
+																	</div>
+
+																</div>
+															</div>
 															<br>
 		
 														</div>
