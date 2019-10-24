@@ -11,23 +11,19 @@ class ObjectManager():
         self.obj_1 = copy.deepcopy(obj_x)
         self.obj_2 = copy.deepcopy(obj_y)
         self.matched = False
-        self.match_obj()
+        self.mismatch_keys = []
 
 
     def match_dict_obj(self, dict_1, dict_2):
         if dict_1 == dict_2:
             return True
 
-        if len(dict_2.keys()) > len(dict_1.keys()):
-            temp = dict_1
-            dict_1 = dict_2
-            dict_2 = temp
         
         keys = list(set(dict_1.keys()) | set(dict_2.keys()))
         
         for key in keys:
-            print(key)
             if dict_1.get(key) != dict_2.get(key):
+                self.mismatch_keys.append(key)
                 if type(dict_1.get(key)) is list and type(dict_2.get(key)) is list:
                     self.match_list_obj(dict_1.get(key), dict_2.get(key))
                 elif type(dict_1.get(key)) is dict and type(dict_2.get(key)) is dict:
@@ -50,7 +46,7 @@ class ObjectManager():
         
         for index, element in enumerate(list_1):
             if element != list_2[index]:
-                if type(element) is dict or type(list_2[index]) is dict:
+                if type(element) is dict and type(list_2[index]) is dict:
                     self.match_dict_obj(element, list_2[index])
                 elif type(element) is list and type(list_2[index]) is list:
                     self.match_list_obj(element, list_2[index])
@@ -66,6 +62,7 @@ class ObjectManager():
             return True
 
         if type(self.obj_1) is not type(self.obj_2):
+            self.mismatch_keys.append('whole object mismatch')
             print('Can not compare two different type of objects')
             return False
 
@@ -88,3 +85,6 @@ class ObjectManager():
 
     def is_matched(self):
         return self.matched
+
+    def mismatched_keys(self):
+        return list(set(self.mismatch_keys))

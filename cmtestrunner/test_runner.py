@@ -34,30 +34,26 @@ class CustomTextTestResult(TextTestResult):
         analytics = generate_analytics(fail_log)
         TestRunner.query_executor.quit()
 
-        rendered = render_to_string('report.html', {
-            'priority_fail_count': analytics,
-            'reproduce_objects': reproduce_object,
-            'success_count': self.testsRun - len(fail_log),
-            'success_percentage': float("%0.2f"%((self.testsRun - len(fail_log))/(self.testsRun + len(exceptions)) * 100)),
-            'fail_count': len(fail_log),
-            'fail_percentage': float("%0.2f"%(len(fail_log)/(self.testsRun + len(exceptions)) * 100)),
-            'exception_count': len(exceptions),
-            'exception_percentage': float("%0.2f"%(len(exceptions)/(self.testsRun + len(exceptions)) * 100)),
-            'exception_details': exceptions
-        })
+        if self.testsRun:
 
-        
-        if not os.path.exists(settings.TEST_PAYLOAD_PATH + 'reports'):
-            os.makedirs(settings.TEST_PAYLOAD_PATH + 'reports')
-        # f = open(settings.TEST_PAYLOAD_PATH + 'reports/api_test_report.csv', 'w')
-        # for item in generate_analytics(fail_log):
-        #     f.write(item + '\n')
+            rendered = render_to_string('report.html', {
+                'priority_fail_count': analytics,
+                'reproduce_objects': reproduce_object,
+                'success_count': self.testsRun - len(fail_log),
+                'success_percentage': float("%0.2f"%((self.testsRun - len(fail_log))/(self.testsRun + len(exceptions)) * 100)),
+                'fail_count': len(fail_log),
+                'fail_percentage': float("%0.2f"%(len(fail_log)/(self.testsRun + len(exceptions)) * 100)),
+                'exception_count': len(exceptions),
+                'exception_percentage': float("%0.2f"%(len(exceptions)/(self.testsRun + len(exceptions)) * 100)),
+                'exception_details': exceptions
+            })
 
-        # f = open(settings.TEST_PAYLOAD_PATH + 'reports/api_test_report_details.csv', 'w')
-        # writer = csv.writer(f, delimiter=',')
-        # writer.writerows(fail_log)
-        f = open(settings.TEST_PAYLOAD_PATH + 'reports/report.html', 'w')
-        f.write(rendered)
+            
+            if not os.path.exists(settings.TEST_PAYLOAD_PATH + 'reports'):
+                os.makedirs(settings.TEST_PAYLOAD_PATH + 'reports')
+
+            f = open(settings.TEST_PAYLOAD_PATH + 'reports/report.html', 'w')
+            f.write(rendered)
 
 
     def startTest(self, test):
@@ -117,15 +113,12 @@ class TestRunner(TestCase):
         set_custom_headers(TestRunner.client, self.custom_headers)
 
     def get_error(self, error_info, exp_response):
-        errors = error_info
+        errors = 'Validation failed for: ' + error_info + '\n\n'
         errors += 'Test Purpose: ' + self.test_purpose + '\n\n'
         errors += 'Requset Header: ' + str(
             TestRunner.client.headers) + '\n\n'
-        errors += 'Request Body: ' + str(self.request_body) + '\n\n'
-        errors += 'Actual Response: \n\t' + str(self.response)[:200] + (
-            ['', '....}'][len(str(self.response)) > 200]) + '\n\n'
-        errors += 'Expected Response: \n\t' + str(exp_response)[:200] + (
-            ['', '....}'][len(str(exp_response)) > 200]) + '\n\n'
+        errors += 'Request Body: \n\t' + str(self.request_body)[:100] + (
+            ['', '....}'][len(str(self.request_body)) > 100]) + '\n\n'
         return errors
 
     def format_expected_response(self, exp_resp, accept_lang):
@@ -205,28 +198,18 @@ class TestRunner(TestCase):
             if accept_lang != 'en':
                 exp_response[key] = self.format_expected_response(
                     exp_response[key], accept_lang)
-
-            error_info = '\nTest ID: ' + str(
-                test_id
-            ) + ' =====>>>>> ' + self.test_data_set + ' >> ' + key + (
-                ' validation failed for language: %s.\n' % accept_lang)
             
             exp_response[key] = value = parse_snapshot(value, self.response.get(key))
             response_[key] = self.response.get(key)
         
         self.response = response_
 
-            
-        with open(settings.TEST_PAYLOAD_PATH + 'actual.json', 'w') as f:
-                json.dump(self.response, f, indent=4)
-
-        with open(settings.TEST_PAYLOAD_PATH + 'expected.json', 'w') as f:
-            json.dump(exp_response, f, indent=4)
-
-
+        
         object_manager = ObjectManager(self.response, exp_response)
+        object_manager.match_obj()
         self.response, exp_response = object_manager.get_converted()
         self.is_matched = object_manager.is_matched()
+        error_info = ', '.join(object_manager.mismatched_keys())
         errors = self.get_error(error_info, exp_response)
         
         try:
@@ -238,7 +221,7 @@ class TestRunner(TestCase):
                 request_body=self.request_body, response=self.response, 
                 request_header=self.custom_headers,
                 expected_response=exp_response,
-                # error_info=error_info
+                error_info=error_info
                 )
             raise
 
@@ -307,11 +290,12 @@ class TestRunner(TestCase):
             test_obj = kwargs.get('test_object')
             if kwargs.get('test_class'):
                 test_class = getattr(test_obj, kwargs.get('test_class'))
-                test_method = getattr(test_class, kwargs.get('test_method'))
+                test_method = kwargs.get('test_method')
                 if kwargs.get('static'):
-                    test_obj = test_class.test_method
+                    test_obj = getattr(test_class, test_method)
                 else:
-                    test_obj = test_class(*inits).test_method
+                    test_obj = test_class(*inits)
+                    test_obj = getattr(test_obj, test_method)
             else:
                 test_obj = getattr(test_obj, kwargs.get('test_method'))
             response = test_obj(*args, **kwargs_)
