@@ -15,8 +15,18 @@ from types import SimpleNamespace as Namespace
 import random
 import numpy as np
 
-reset_seq_query = ''
-all_models = []
+# reset_seq_query = ''
+# all_models = []
+# fail_log = []
+# reproduce_object = []
+# exceptions = []
+
+class Constants():
+    RESET_SEQ_QUERY = ''
+    MODELS = []
+    FAIL_LOG = []
+    REPR_OBJ = []
+    EXCEPTIONS = []
 
 
 class CustomDict(dict):
@@ -53,20 +63,20 @@ def get_int_value_if_available(value):
         return value
 
 def set_reset_seq_query():
-    global reset_seq_query
+    # global reset_seq_query
     commands = StringIO()
 
     for app in apps.get_app_configs():
         label = app.label
         call_command('sqlsequencereset', '--no-color', label, stdout=commands)
 
-    reset_seq_query = commands.getvalue()
+    Constants.RESET_SEQ_QUERY = commands.getvalue()
 
 def set_all_models():
-    global all_models
+    # global all_models
     for app in settings.TEST_APPS:
         for model in apps.get_app_config(app).get_models():
-            all_models.append(model)
+            Constants.MODELS.append(model)
 
 
 
@@ -141,10 +151,10 @@ def get_all_locales():
     return all_locales
 
 def reset_db(*arg):
-    for model in all_models:
+    for model in Constants.MODELS:
         model.objects.all().delete()
     cursor = connection.cursor()
-    cursor.execute(reset_seq_query)
+    cursor.execute(Constants.RESET_SEQ_QUERY)
 
 def get_translations(file):
     with open(
@@ -282,9 +292,7 @@ def get_test_endpoints(file):
     endpoints = dict_to_obj(endpoints)
     return endpoints
 
-fail_log = []
-reproduce_object = []
-exceptions = []
+
 
 
 def generate_failed_test_report(**kwargs):
@@ -305,13 +313,13 @@ def generate_failed_test_report(**kwargs):
         'error_info': kwargs.get('error_info'),
     }
     fail_log.append(report_)
-    reproduce_object.append(report)
+    Constants.REPR_OBJ.append(report)
 
 def generate_analytics(fail_log):
     if not fail_log:
         return []
-    fail_log = np.array(fail_log)
-    priorities, counts = np.unique(fail_log[:, 2], return_counts=True)
+    Constants.FAIL_LOG = np.array(fail_log)
+    priorities, counts = np.unique(Constants.FAIL_LOG[:, 2], return_counts=True)
     # priorities = [str(x) for x in priorities]
     prior_count = list(zip(counts, priorities))
     # return [' '.join(x) for x in prior_count]
@@ -358,32 +366,3 @@ def parse_snapshot(snapshot, actual=None):
 
     return snapshot
 
-
-
-# def process_snapshot(expected, actual):
-
-#     parsed_object = parse_snapshot(expected)
-#     if not matched_obj:
-#         f = open(settings.TEST_DATA_PATH + 'snapshots/' +
-#                                 matched_obj[1], 'w')
-#         json.dump(actual, f, indent=4)
-
-#         return actual
-    
-#     return parsed_object
-
-    # if re.match(r'snapshot\((.*\.json)\)', expected):
-    #     snapshot_file = re.match(r'snapshot\((.*\.json)\)', expected)[1]
-    #     if not os.path.isfile(
-    #         settings.TEST_DATA_PATH + 'snapshots/' + snapshot_file):
-    #         f = open(settings.TEST_DATA_PATH + 'snapshots/' +
-    #                             snapshot_file, 'w')
-    #         json.dump(actual, f, indent=4)
-    #         return actual
-            
-    #     else:
-    #         with open(settings.TEST_DATA_PATH + 'snapshots/' +
-    #                     snapshot_file, 'r') as f:
-    #             return json.load(f)
-    
-    # return expected

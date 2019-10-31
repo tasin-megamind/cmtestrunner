@@ -6,9 +6,9 @@ from .middleware import (request_response_formatter, get_all_locales,
                                    get_translations, reset_db, BOOL,
                                    set_auth_header, reset_auth_header, set_custom_headers,
                                    set_lang_header, set_reset_seq_query, set_all_models,
-                                   unit_test_formatter, generate_failed_test_report, 
-                                   fail_log, parse_snapshot, fail_log, reproduce_object,
-                                   generate_analytics, exceptions, get_test_endpoints)
+                                   unit_test_formatter, generate_failed_test_report,
+                                   parse_snapshot, generate_analytics, get_test_endpoints,
+                                   Constants)
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
 import inspect
@@ -31,21 +31,21 @@ class CustomTextTestResult(TextTestResult):
 
     def stopTestRun(self):
         self.testsRun = TestRunner.total_test_cases
-        analytics = generate_analytics(fail_log)
+        analytics = generate_analytics(Constants.FAIL_LOG)
         TestRunner.query_executor.quit()
 
         if self.testsRun:
 
             rendered = render_to_string('report.html', {
                 'priority_fail_count': analytics,
-                'reproduce_objects': reproduce_object,
-                'success_count': self.testsRun - len(fail_log),
-                'success_percentage': float("%0.2f"%((self.testsRun - len(fail_log))/(self.testsRun + len(exceptions)) * 100)),
-                'fail_count': len(fail_log),
-                'fail_percentage': float("%0.2f"%(len(fail_log)/(self.testsRun + len(exceptions)) * 100)),
-                'exception_count': len(exceptions),
-                'exception_percentage': float("%0.2f"%(len(exceptions)/(self.testsRun + len(exceptions)) * 100)),
-                'exception_details': exceptions
+                'reproduce_objects': Constants.REPR_OBJ,
+                'success_count': self.testsRun - len(Constants.FAIL_LOG),
+                'success_percentage': float("%0.2f"%((self.testsRun - len(Constants.FAIL_LOG))/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+                'fail_count': len(Constants.FAIL_LOG),
+                'fail_percentage': float("%0.2f"%(len(Constants.FAIL_LOG)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+                'exception_count': len(Constants.EXCEPTIONS),
+                'exception_percentage': float("%0.2f"%(len(Constants.EXCEPTIONS)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+                'exception_details': Constants.EXCEPTIONS
             })
 
             
@@ -239,7 +239,7 @@ class TestRunner(TestCase):
         try:
             self.set_test_attributes(**kwargs)
         except Exception as e:
-            exceptions.append({
+            Constants.EXCEPTIONS.append({
                 'test_method': kwargs.get('test_method').__name__,
                 'details': e
             })
