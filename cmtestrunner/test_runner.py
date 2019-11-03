@@ -6,7 +6,7 @@ from .middleware import (request_response_formatter, get_all_locales,
                                    get_translations, reset_db, BOOL,
                                    set_auth_header, reset_auth_header, set_custom_headers,
                                    set_lang_header, set_reset_seq_query, set_all_models,
-                                   unit_test_formatter, generate_failed_test_report,
+                                   unit_test_formatter, generate_test_report,
                                    parse_snapshot, generate_analytics, get_test_endpoints,
                                    Constants)
 from unittest import TextTestRunner, TextTestResult
@@ -211,11 +211,8 @@ class TestRunner(TestCase):
         self.is_matched = object_manager.is_matched()
         error_info = ', '.join(object_manager.mismatched_keys())
         errors = self.get_error(error_info, exp_response)
-        
-        try:
-            self.assertEqual(self.is_matched, True, msg=errors)
-        except AssertionError:
-            generate_failed_test_report(
+
+        generate_test_report(
                 test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
                 purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
                 request_body=self.request_body, response=self.response, 
@@ -223,6 +220,19 @@ class TestRunner(TestCase):
                 expected_response=exp_response,
                 error_info=error_info
                 )
+        
+        try:
+            self.assertEqual(self.is_matched, True, msg=errors)
+        except AssertionError:
+            mark_test_as_failed()
+            # generate_test_report(
+            #     test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
+            #     purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
+            #     request_body=self.request_body, response=self.response, 
+            #     request_header=self.custom_headers,
+            #     expected_response=exp_response,
+            #     error_info=error_info
+            #     )
             raise
 
 

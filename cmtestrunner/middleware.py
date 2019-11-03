@@ -295,7 +295,7 @@ def get_test_endpoints(file):
 
 
 
-def generate_failed_test_report(**kwargs):
+def generate_test_report(**kwargs):
     # kwargs = dict_to_obj(kwargs)
     report_ = [
                 kwargs.get('test_name'), kwargs.get('test_id'), 
@@ -312,8 +312,12 @@ def generate_failed_test_report(**kwargs):
         'expected_response': json.dumps(kwargs.get('expected_response'), indent=4, sort_keys=False, ensure_ascii=False),
         'error_info': kwargs.get('error_info'),
     }
-    fail_log.append(report_)
+    Constants.FAIL_LOG.append(report_)
     Constants.REPR_OBJ.append(report)
+
+def mark_test_as_failed():
+    Constants.REPR_OBJ[-1]['failed'] = True
+
 
 def generate_analytics(fail_log):
     if not fail_log:

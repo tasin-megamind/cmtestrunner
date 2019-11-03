@@ -1,17 +1,14 @@
 
 <!DOCTYPE html>
 <html lang="en">
-	<title>Test Report</title>
+	
 
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 
-	<title>Bootstrap 4, from LayoutIt!</title>
-
-	<meta name="description" content="Source code generated using layoutit.com">
-	<meta name="author" content="LayoutIt!">
+	<title>Test Report</title>
 
 	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet"
 		integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
@@ -130,134 +127,41 @@
 
 		{% if reproduce_objects %}
 			<div class="col-md-12">
-				<h4>Reproduce Steps</h4>
+				<h4>Failed Tests</h4>
 			</div>
 			<br>
 
 			<div id="card-3">
 
 				{% for obj in reproduce_objects %}
+
+					{% if obj.failed %}	
+							{% include "test_datails.html" with obj=obj %}
+					{% endif %}
 					
-					<div class="card">
-						<div class="card-header">
-							<a class="card-link collapsed" data-toggle="collapse" data-parent="#card-3"
-								href="#test-id-{{obj.test_id}}">{{obj.test}}</a>
-						</div>    
-						
-						<div id="test-id-{{obj.test_id}}" class="collapse">
-							<div class="card-body">
-								<ul>
-									{% for step in obj.reproduce_steps %}
-										<li class="list-item">
-											{{step}}
-										</li>
-									{% endfor %}
-
-									<div class="row">
-										<div class="col-md-4">
-										</div>
-										<div class="col-md-4">
-											<br>
-											<button type="button" class="btn btn-info" id="modal-{{obj.test_id}}" href="#modal-container-{{obj.test_id}}" data-toggle="modal">
-													View Details
-											</button>										
-											<div class="modal fade" id="modal-container-{{obj.test_id}}" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-												<div class="modal-dialog modal-xl" role="document">
-													<div class="modal-content">
-														<div class="modal-header">
-															<h5 class="modal-title" id="myModalLabel">
-																{{obj.test}}
-															</h5> 
-															<button type="button" class="close" data-dismiss="modal">
-																<span aria-hidden="true">×</span>
-															</button>
-														</div>
-														<div class="modal-body">
-															{% if obj.error_info %}
-																<h6 class="text-primary">Error Info</h6>
-																<p class="text-danger" style="white-space: pre-wrap">Validation Failed For: {{obj.error_info}}</p>
-															{% endif %}
-															
-															<h6 class="text-primary">Request Body</h6>
-															<div style="max-height: 400px; overflow: auto;  border-radius: 5px; border: 1px solid paleturquoise;">
-																<p class="text-info" style="white-space: pre-wrap">{{obj.request_body|safe}}</p>
-															</div>
-
-															<br>
-	
-															<h6 class="text-primary">Header</h6>
-															<p class="text-info" style="white-space: pre-wrap">{{obj.request_header|safe}}</p>
-															<div class="container">
-																<div class="row">
-																	<div class="col-md-6">
-																		<h6 class="text-primary">Actual Response</h6>
-																		<small class="text-info" style="white-space: pre-wrap">
-																			{{obj.response|safe}}
-																		</small>
-																			
-																	</div>
-																	<div class="col-md-6">
-																		<h6 class="text-primary">Expected Response</h6>
-																		<small class="text-info" style="white-space: pre-wrap">
-																			{{obj.expected_response|safe}}
-																		</small>
-																	</div>
-
-																</div>
-															</div>
-															<br>
-		
-														</div>
-														<div class="modal-footer">
-															<button type="button" class="btn btn-secondary" data-dismiss="modal">
-																Close
-															</button>
-														</div>
-													</div>
-													
-												</div>
-												
-											</div>
-											
-										</div>
-										<div class="col-md-4">
-										</div>
-									</div>
-								</ul>
-							</div>
-						</div>
-					</div>
 
 				{% endfor %}
 			</div>
-		{% endif %}
-		<br>
-		<br>
 
-		{% if exception_details %}
 			<div class="col-md-12">
-					<h4>Exception Details</h4>
-			</div>
-			<br>
-			<div id="card-4">
-				{% for obj in exception_details %}
-				<div class="card">
-						<div class="card-header">
-							<a class="card-link collapsed" data-toggle="collapse" data-parent="#card-3"
-								href="#test-id-{{obj.test_method}}">{{obj.test_method}}</a>
-						</div>  
-						<div id="test-id-{{obj.test_method}}" class="collapse">
-								<div class="card-body">
-									<ul>
-										{{obj.details}}
-									</ul>
-								</div>
-						</div>
+					<h4>Passed Tests</h4>
 				</div>
-				{% endfor%}
-
-			</div>
+				<br>
+	
+				<div id="card-3">
+	
+					{% for obj in reproduce_objects %}
+	
+						{% if not obj.failed %}	
+								{% include "test_datails.html" with obj=obj %}
+						{% endif %}
+						
+	
+					{% endfor %}
+				</div>
 		{% endif %}
+
+		{% include "exceptions.html" with exception_details=exception_details %}
 			
 	</div>
                 

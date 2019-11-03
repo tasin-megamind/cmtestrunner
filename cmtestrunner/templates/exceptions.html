@@ -1,0 +1,24 @@
+{% if exception_details %}
+    <div class="col-md-12">
+            <h4>Exception Details</h4>
+    </div>
+    <br>
+    <div id="card-4">
+        {% for obj in exception_details %}
+        <div class="card">
+                <div class="card-header">
+                    <a class="card-link collapsed" data-toggle="collapse" data-parent="#card-3"
+                        href="#test-id-{{obj.test_method}}">{{obj.test_method}}</a>
+                </div>  
+                <div id="test-id-{{obj.test_method}}" class="collapse">
+                        <div class="card-body">
+                            <ul>
+                                {{obj.details}}
+                            </ul>
+                        </div>
+                </div>
+        </div>
+        {% endfor%}
+
+    </div>
+{% endif %}
