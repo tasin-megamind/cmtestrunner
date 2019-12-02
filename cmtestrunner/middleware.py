@@ -25,8 +25,9 @@ class Constants():
     RESET_SEQ_QUERY = ''
     MODELS = []
     FAIL_LOG = []
-    REPR_OBJ = []
+    FAILED_TESTS = []
     EXCEPTIONS = []
+    PASSED_TESTS = []
 
 
 class CustomDict(dict):
@@ -92,15 +93,15 @@ def parse_list_string(list_string):
             list_string_ = list_string_.replace("'", '"')
             list_string_ = list_string_.replace(special_str, "'")
             return json.loads(list_string_)
-        except Exception as e:
+        except Exception:
             return list_string
 
 
 def simplify_data(data):
     if data == 'N/A':
         return False
-    if re.match(r'string\((.*)\)', data):
-        return re.match(r'string\((.*)\)', data)[1]
+    # if re.match(r'string\((.*)\)', data):
+    #     return re.match(r'string\((.*)\)', data)[1]
     elif re.match(r'random\((.*, [0-9]+)\)', data):
         matched = re.match(r'random\((.*), ([0-9]+)\)', data)
         random_str = random.choice(matched[1]) * int(matched[2])
@@ -313,10 +314,12 @@ def generate_test_report(**kwargs):
         'error_info': kwargs.get('error_info'),
     }
     Constants.FAIL_LOG.append(report_)
-    Constants.REPR_OBJ.append(report)
+    Constants.PASSED_TESTS.append(report)
 
 def mark_test_as_failed():
-    Constants.REPR_OBJ[-1]['failed'] = True
+    Constants.FAILED_TESTS.append(Constants.PASSED_TESTS[-1])
+    del Constants.PASSED_TESTS[-1]
+    # Constants.FAILED_TESTS[-1]['failed'] = True
 
 
 def generate_analytics(fail_log):

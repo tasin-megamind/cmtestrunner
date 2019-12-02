@@ -8,7 +8,7 @@ from .middleware import (request_response_formatter, get_all_locales,
                                    set_lang_header, set_reset_seq_query, set_all_models,
                                    unit_test_formatter, generate_test_report,
                                    parse_snapshot, generate_analytics, get_test_endpoints,
-                                   Constants)
+                                   Constants, mark_test_as_failed)
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
 import inspect
@@ -38,7 +38,8 @@ class CustomTextTestResult(TextTestResult):
 
             rendered = render_to_string('report.html', {
                 'priority_fail_count': analytics,
-                'reproduce_objects': Constants.REPR_OBJ,
+                'passed_tests': Constants.PASSED_TESTS,
+                'failed_tests': Constants.FAILED_TESTS,
                 'success_count': self.testsRun - len(Constants.FAIL_LOG),
                 'success_percentage': float("%0.2f"%((self.testsRun - len(Constants.FAIL_LOG))/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
                 'fail_count': len(Constants.FAIL_LOG),
@@ -254,6 +255,18 @@ class TestRunner(TestCase):
                 'details': e
             })
             raise
+        endpoint = getattr(
+            TestRunner.ENDPOINTS, 
+            kwargs.get('test_method').__name__.upper() + '_URL'
+            )
+
+        if re.match(r'(.*/)?(<.*>)(/.*)?', endpoint):
+            for k, v in self.request_body.items():
+                setattr(
+                    TestRunner.ENDPOINTS, 
+                    kwargs.get('test_method').__name__.upper() + '_URL', 
+                    endpoint.replace('<' + k + '>', v)
+                )
 
             
         for each_test_data in self.test_data:

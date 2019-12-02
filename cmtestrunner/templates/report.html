@@ -125,7 +125,7 @@
 		<br>
 
 
-		{% if reproduce_objects %}
+		{% if failed_tests %}
 			<div class="col-md-12">
 				<h4>Failed Tests</h4>
 			</div>
@@ -133,32 +133,25 @@
 
 			<div id="card-3">
 
-				{% for obj in reproduce_objects %}
-
-					{% if obj.failed %}	
-							{% include "test_datails.html" with obj=obj %}
-					{% endif %}
-					
-
+				{% for obj in failed_tests %}
+					{% include "test_details.html" with obj=obj %}					
 				{% endfor %}
 			</div>
+		{% endif %}
 
+
+		{% if passed_tests %}
 			<div class="col-md-12">
-					<h4>Passed Tests</h4>
-				</div>
-				<br>
+				<h4>Passed Tests</h4>
+			</div>
+			<br>
 	
-				<div id="card-3">
-	
-					{% for obj in reproduce_objects %}
-	
-						{% if not obj.failed %}	
-								{% include "test_datails.html" with obj=obj %}
-						{% endif %}
-						
-	
-					{% endfor %}
-				</div>
+			<div id="card-3">
+
+				{% for obj in passed_tests %}
+					{% include "test_details.html" with obj=obj %}					
+				{% endfor %}
+			</div>
 		{% endif %}
 
 		{% include "exceptions.html" with exception_details=exception_details %}
