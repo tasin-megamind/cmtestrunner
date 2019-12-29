@@ -333,6 +333,21 @@ def generate_analytics(fail_log):
     return prior_count
 
 
+def replace_attribute_value(obj, key_val):
+    keys = key_val.split('=')[0].split('.')
+    value = simplify_data(key_val.split('=')[1])
+    temp = [obj]
+    for index, key in enumerate(keys):
+        temp.append(temp[index].get(key))
+    temp[-1] = parse_list_string(value)
+    count = len(temp) - 1
+    while(count):
+        temp[count-1][next(iter(temp[count-1]))] = temp[count]
+        count-=1
+    return temp[0]
+
+
+
 
 def parse_snapshot(snapshot, actual=None):
     matched = re.match(r'snapshot\((.*\.json)\)((\.)(.*))?', str(snapshot))
@@ -344,32 +359,24 @@ def parse_snapshot(snapshot, actual=None):
             f = open(settings.TEST_DATA_PATH + 'snapshots/' +
                                 snapshot_file, 'r')
 
-            if matched[4]:
-                keys = matched[4].split('=')[0].split('.')
-                value = simplify_data(matched[4].split('=')[1])
-                temp = [json.load(f)]
-                for index, key in enumerate(keys):
-                    temp.append(temp[index].get(key))
-                temp[-1] = parse_list_string(value)
-                count = len(temp) - 1
-                while(count):
-                    temp[count-1][next(iter(temp[count-1]))] = temp[count]
-                    count-=1
-                return temp[0]
+            try:
+                obj = json.load(f)
+            except Exception:
+                return False
+
+            if matched[4]:              
+                x = matched[4].split(',')
+                for _ in x:
+                    obj = replace_attribute_value(obj, _)
+                return obj
             else:
-                try:
-                    return json.load(f)
-                except Exception:
-                    return False
+                return obj
         else:
             f = open(settings.TEST_DATA_PATH + 'snapshots/' +
                                 snapshot_file, 'w', encoding='utf-8')
             if actual:
                 json.dump(actual, f, ensure_ascii=False, indent=4)
-                return actual
-
-
-        
+                return actual     
 
     return snapshot
 
