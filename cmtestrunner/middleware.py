@@ -14,12 +14,10 @@ from django.apps import apps
 from types import SimpleNamespace as Namespace
 import random
 import numpy as np
+import requests
 
-# reset_seq_query = ''
-# all_models = []
-# fail_log = []
-# reproduce_object = []
-# exceptions = []
+
+
 
 class Constants():
     RESET_SEQ_QUERY = ''
@@ -28,6 +26,7 @@ class Constants():
     FAILED_TESTS = []
     EXCEPTIONS = []
     PASSED_TESTS = []
+    PASSED_LOG = []
 
 
 class CustomDict(dict):
@@ -110,6 +109,9 @@ def simplify_data(data):
         return int(re.match(r'integer\(([0-9]+)\)', data)[1])
     elif re.match(r'bool\((.*)\)', data):
         return BOOL.get(re.match(r'bool\((.*)\)', data)[1])
+    elif re.match(r'Context\.(.*)', data):
+        context_variable = re.match(r'Context\.(.*)', data)[1]
+        return Context.get(context_variable)
     else:
         return parse_list_string(data)
 
@@ -134,10 +136,11 @@ def request_response_formatter(file):
                         headers[each_header[7:]] = simplified_data
                     else:
                         parsed_obj = parse_snapshot(simplified_data)
-                        if type(parsed_obj) is dict:
+            
+                        if type(parsed_obj) is dict and each_header == 'request_body':
                             req.update(parsed_obj)
                         else:
-                            req[each_header] = simplified_data
+                            req[each_header] = parsed_obj
 
             result = {'req': req, 'resp': resp, 'headers': headers}
             all_req_resp.append(result)
@@ -204,7 +207,7 @@ def format_response(response_obj):
     if type(response) is list:
         response = {'content': response}
 
-    response['status_code'] = response_obj.status_code
+    response['status_code'] = str(response_obj.status_code)
     return response
 
 def process_request_response(**kwargs):
@@ -313,12 +316,14 @@ def generate_test_report(**kwargs):
         'expected_response': json.dumps(kwargs.get('expected_response'), indent=4, sort_keys=False, ensure_ascii=False),
         'error_info': kwargs.get('error_info'),
     }
-    Constants.FAIL_LOG.append(report_)
+    Constants.PASSED_LOG.append(report_)
     Constants.PASSED_TESTS.append(report)
 
 def mark_test_as_failed():
+    Constants.FAIL_LOG.append(Constants.PASSED_LOG[-1])
     Constants.FAILED_TESTS.append(Constants.PASSED_TESTS[-1])
     del Constants.PASSED_TESTS[-1]
+    del Constants.PASSED_LOG[-1]
     # Constants.FAILED_TESTS[-1]['failed'] = True
 
 
@@ -342,7 +347,7 @@ def replace_attribute_value(obj, key_val):
     temp[-1] = parse_list_string(value)
     count = len(temp) - 1
     while(count):
-        temp[count-1][next(iter(temp[count-1]))] = temp[count]
+        temp[count-1][keys[count-1]] = temp[count]
         count-=1
     return temp[0]
 
@@ -350,12 +355,13 @@ def replace_attribute_value(obj, key_val):
 
 
 def parse_snapshot(snapshot, actual=None):
-    matched = re.match(r'snapshot\((.*\.json)\)((\.)(.*))?', str(snapshot))
+    matched = re.match(r'snapshot\((.*\.json)\)((\.)\((.*)\))?', str(snapshot))
     if matched:
         snapshot_file = matched[1]
         
         if os.path.isfile(
             settings.TEST_DATA_PATH + 'snapshots/' + snapshot_file):
+
             f = open(settings.TEST_DATA_PATH + 'snapshots/' +
                                 snapshot_file, 'r')
 
@@ -380,3 +386,30 @@ def parse_snapshot(snapshot, actual=None):
 
     return snapshot
 
+
+# expects csv file with base_url alias, endpoint, headers & req body
+def create_default_data_by_api(file):
+    data = request_response_formatter(file)
+    
+    for _ in data:
+        url = getattr(settings, _.get('req').pop('base_url').upper() + '_BASE_URL') + \
+            _.get('req').pop('endpoint')
+        client.headers.update(_.get('headers'))
+        response = process_request_response(
+            client=requests.Session(),
+            url=url,
+            data=_.get('req'),
+            method='post'
+        )
+
+        if response.get('status_code') in range(200, 205):
+            print('Default Data Created: ')
+            context_vars = parse_list_string(_.get('resp').get('context'))
+            for element in context_vars:
+                setattr(Context, element, response.get(element))
+
+        if _.get('req').get('wait'):
+            time.sleep(int(_.get('req').get('wait')))
+
+
+Context = CustomDict()

@@ -22,6 +22,7 @@ import os
 import csv
 from django.template.loader import render_to_string
 from .object_manager import ObjectManager
+import time
 
 
 class CustomTextTestResult(TextTestResult):
@@ -32,7 +33,8 @@ class CustomTextTestResult(TextTestResult):
     def stopTestRun(self):
         self.testsRun = TestRunner.total_test_cases
         analytics = generate_analytics(Constants.FAIL_LOG)
-        TestRunner.query_executor.quit()
+        if TestRunner.query_executor:
+            TestRunner.query_executor.quit()
 
         if self.testsRun:
 
@@ -102,7 +104,7 @@ class TestRunner(TestCase):
                 reset_auth_header(TestRunner.client)
      
         
-
+        self.wait = self.request_body.get('wait', 0)
         self.exp_response = test_data.get('resp')
         self.priority = self.request_body.pop('priority')
         self.test_id = self.request_body.pop('test_id')
@@ -151,7 +153,8 @@ class TestRunner(TestCase):
         TestRunner.client = self.get_client()
         if settings.TEST_SERVER == 'http://testserver':
             TestRunner.reset_db = reset_db
-        TestRunner.reset_db(TestRunner.query_executor)
+        if TestRunner.query_executor:
+            TestRunner.reset_db(TestRunner.query_executor)
         translation.activate('en')
         self.reproduce_steps = []
         try:
@@ -226,14 +229,6 @@ class TestRunner(TestCase):
             self.assertEqual(self.is_matched, True, msg=errors)
         except AssertionError:
             mark_test_as_failed()
-            # generate_test_report(
-            #     test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
-            #     purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
-            #     request_body=self.request_body, response=self.response, 
-            #     request_header=self.custom_headers,
-            #     expected_response=exp_response,
-            #     error_info=error_info
-            #     )
             raise
 
 
@@ -260,23 +255,24 @@ class TestRunner(TestCase):
             kwargs.get('test_method').__name__.upper() + '_URL'
             )
 
-        if re.match(r'(.*/)?(<.*>)(/.*)?', endpoint):
-            for k, v in self.request_body.items():
-                setattr(
-                    TestRunner.ENDPOINTS, 
-                    kwargs.get('test_method').__name__.upper() + '_URL', 
-                    endpoint.replace('<' + k + '>', v)
-                )
+        
 
             
         for each_test_data in self.test_data:
             self.set_test_vars(each_test_data)
+            if re.match(r'(.*/)?(<.*>)(/.*)?', endpoint):
+                for k, v in self.request_body.items():
+                    replace_for = kwargs.get('test_method').__name__.upper() + '_URL'
+                    endpoint = endpoint.replace('<' + k + '>', str(v))
+                    setattr(TestRunner.ENDPOINTS, replace_for, endpoint)
+                   
             try:
                 if self.request_body.get(
                         'accept_lang'
                 ) and self.request_body.get('accept_lang') != self.accept_lang:
                     TestRunner.total_test_cases -= 1
                     continue
+                time.sleep(self.wait/1000)
                 self.response = kwargs.get('test_method')(
                     client=TestRunner.client,
                     request_body=self.request_body,
