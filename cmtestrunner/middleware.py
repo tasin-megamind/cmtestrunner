@@ -116,6 +116,7 @@ def simplify_data(data):
         return parse_list_string(data)
 
 
+
 def request_response_formatter(file):
     with open(settings.TEST_DATA_PATH + file, 'r') as test_file:
         test_data = csv.reader(test_file, delimiter=',', quotechar='"')
@@ -141,6 +142,7 @@ def request_response_formatter(file):
                             req.update(parsed_obj)
                         else:
                             req[each_header] = parsed_obj
+            
 
             result = {'req': req, 'resp': resp, 'headers': headers}
             all_req_resp.append(result)
@@ -368,7 +370,7 @@ def parse_snapshot(snapshot, actual=None):
             try:
                 obj = json.load(f)
             except Exception:
-                return False
+                return f.read()
 
             if matched[4]:              
                 x = matched[4].split(',')
@@ -378,9 +380,10 @@ def parse_snapshot(snapshot, actual=None):
             else:
                 return obj
         else:
-            f = open(settings.TEST_DATA_PATH + 'snapshots/' +
-                                snapshot_file, 'w', encoding='utf-8')
             if actual:
+                f = open(settings.TEST_DATA_PATH + 'snapshots/' +
+                                snapshot_file, 'w', encoding='utf-8')
+            
                 json.dump(actual, f, ensure_ascii=False, indent=4)
                 return actual     
 
@@ -394,18 +397,20 @@ def create_default_data_by_api(file):
     for _ in data:
         url = getattr(settings, _.get('req').pop('base_url').upper() + '_BASE_URL') + \
             _.get('req').pop('endpoint')
+        client = requests.Session()
         client.headers.update(_.get('headers'))
         response = process_request_response(
-            client=requests.Session(),
+            client=client,
             url=url,
             data=_.get('req'),
             method='post'
         )
 
-        if response.get('status_code') in range(200, 205):
+        if int(response.get('status_code')) in range(200, 205):
             print('Default Data Created: ')
-            context_vars = parse_list_string(_.get('resp').get('context'))
+            context_vars = _.get('req').get('context', [])
             for element in context_vars:
+                resp_context = _.get('resp').get(element)
                 setattr(Context, element, response.get(element))
 
         if _.get('req').get('wait'):

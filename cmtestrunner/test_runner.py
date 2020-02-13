@@ -23,6 +23,7 @@ import csv
 from django.template.loader import render_to_string
 from .object_manager import ObjectManager
 import time
+import copy
 
 
 class CustomTextTestResult(TextTestResult):
@@ -198,11 +199,17 @@ class TestRunner(TestCase):
 
         response_ = {}
 
-        for key, value in exp_response.items():
+        exp_response_ = copy.deepcopy(exp_response)
+
+        for key, value in exp_response_.items():
             if accept_lang != 'en':
                 exp_response[key] = self.format_expected_response(
                     exp_response[key], accept_lang)
-            
+            if key == 'response':
+                exp_response.pop('response')
+                exp_response.update(parse_snapshot(value, self.response))
+                response_.update(self.response)
+                continue
             exp_response[key] = value = parse_snapshot(value, self.response.get(key))
             response_[key] = self.response.get(key)
         
