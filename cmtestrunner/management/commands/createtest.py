@@ -97,7 +97,10 @@ class Command(BaseCommand):
         self.generate_endpoints()
         self.generate_test_methods()
         self.generate_tests()
-        self.update_file(self.base_dir + '/utils/test/data/' + self.test_name + '.csv', '')
+        
+        if not os.path.exists(self.base_dir + '/utils/test/data/tests/' + self.test_name + '.csv'):
+            file_content = 'test_id,request_body,resp_response,priority,comment'
+            self.update_file(self.base_dir + '/utils/test/data/tests/' + self.test_name + '.csv', file_content)
 
         self.stdout.write(
                 self.style.SUCCESS('Successfully created test'))

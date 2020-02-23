@@ -15,6 +15,7 @@ from types import SimpleNamespace as Namespace
 import random
 import numpy as np
 import requests
+import copy
 
 
 
@@ -96,12 +97,17 @@ def parse_list_string(list_string):
             return list_string
 
 
+
+
+
+
 def simplify_data(data):
     if data == 'N/A':
         return False
+
     # if re.match(r'string\((.*)\)', data):
     #     return re.match(r'string\((.*)\)', data)[1]
-    elif re.match(r'random\((.*, [0-9]+)\)', data):
+    if re.match(r'random\((.*, [0-9]+)\)', data):
         matched = re.match(r'random\((.*), ([0-9]+)\)', data)
         random_str = random.choice(matched[1]) * int(matched[2])
         return random_str
@@ -179,9 +185,15 @@ BOOL = {
     'none': False
 }
 
+def get_data_from_yml(file):
+    with open(settings.TEST_DATA_PATH + 'yml/' + file, encoding='utf8') as fp:
+        data = load(fp,Loader)
+    return data
+
+
 def set_auth_header(client, auth_token):
     existing_headers = client.headers
-    existing_headers['Authorization'] = 'token ' + auth_token
+    existing_headers['Authorization'] = auth_token
     client.headers.update(existing_headers)
 
 def reset_auth_header(client):
@@ -390,9 +402,33 @@ def parse_snapshot(snapshot, actual=None):
     return snapshot
 
 
+def get_attribute_value_from_json(json_obj, attribute_path):
+    if attribute_path and type(json_obj) is dict:
+        attribute_value = copy.deepcopy(json_obj)
+        attribute_path = attribute_path.split('.')
+        for attribute in attribute_path:
+            list_available = re.match(r'^(.*)\[([0-9]+)\]$', attribute)
+            index = None
+            if list_available:
+                attribute = list_available[1]
+                index = int(list_available[2])
+
+            if type(attribute_value) is dict:
+                attribute_value = attribute_value.get(attribute)
+                if index is not None:
+                    attribute_value = attribute_value[index]
+            else:
+                raise Exception('attribute not found in dictionary object')
+        
+        return attribute_value
+
+    raise Exception('get_attribute_value_from_json: argument error')
+
+
+
 # expects csv file with base_url alias, endpoint, headers & req body
 def create_default_data_by_api(file):
-    data = request_response_formatter(file)
+    data = request_response_formatter('default/' + file)
     
     for _ in data:
         url = getattr(settings, _.get('req').pop('base_url').upper() + '_BASE_URL') + \
@@ -407,14 +443,25 @@ def create_default_data_by_api(file):
         )
 
         if int(response.get('status_code')) in range(200, 205):
-            print('Default Data Created: ')
-            context_vars = _.get('req').get('context', [])
-            for element in context_vars:
-                resp_context = _.get('resp').get(element)
-                setattr(Context, element, response.get(element))
+            print('Default Data Created with ' + url)
+            context_vars = _.get('req').get('context', {})
+            for var_name, element in context_vars.items():
+                if re.match(r'^(.*)\[\]$', var_name):
+                    var_name = re.match(r'^(.*)\[\]$', var_name)[1]
+                    if Context.get(var_name):
+                        Context.get(var_name).append(get_attribute_value_from_json(response, element))
+                    else:
+                        empty_list = []
+                        empty_list.append(get_attribute_value_from_json(response, element))
+                        setattr(Context, var_name, empty_list)
+                else:
+                    setattr(Context, var_name, get_attribute_value_from_json(response, element))
+        else:
+            raise Exception('default data generation failed: ' + url + '\n\n' + str(_.get('req')) + '\n\n' + str(response))
 
         if _.get('req').get('wait'):
             time.sleep(int(_.get('req').get('wait')))
+
 
 
 Context = CustomDict()

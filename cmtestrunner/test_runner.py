@@ -104,7 +104,10 @@ class TestRunner(TestCase):
             elif user_type == 'none':
                 reset_auth_header(TestRunner.client)
      
-        
+        self.reset_env = self.request_body.get('reset_env')
+        if self.reset_env:
+            self.set_environment(self.environment)
+
         self.wait = self.request_body.get('wait', 0)
         self.exp_response = test_data.get('resp')
         self.priority = self.request_body.pop('priority')
@@ -115,6 +118,11 @@ class TestRunner(TestCase):
             ' failed for language: %s.\n' % self.accept_lang
         self.custom_headers = test_data.get('headers')
         set_custom_headers(TestRunner.client, self.custom_headers)
+
+        if re.match(r'(.*/)?(<.*>)(/.*)?', self.endpoint):
+            for k, v in self.request_body.items():
+                self.endpoint = self.endpoint.replace('<' + k + '>', str(v))
+                setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
 
     def get_error(self, error_info, exp_response):
         errors = 'Validation failed for: ' + error_info + '\n\n'
@@ -227,7 +235,7 @@ class TestRunner(TestCase):
                 test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
                 purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
                 request_body=self.request_body, response=self.response, 
-                request_header=self.custom_headers,
+                request_header=dict(TestRunner.client.headers),
                 expected_response=exp_response,
                 error_info=error_info
                 )
@@ -241,12 +249,21 @@ class TestRunner(TestCase):
 
     def set_test_attributes(self, **kwargs):
         TestRunner.client = self.get_client()
-        self.set_environment(kwargs.get('env', []))
+        self.environment = kwargs.get('env', [])
+        self.set_environment(self.environment)
         self.sub_test = kwargs.get('sub_test')
         self.accept_lang = kwargs.get('accept_lang')
         self.set_headers(accept_lang=self.accept_lang)
         self.test_data_set = kwargs.get('test_data_set')
-        self.test_data = request_response_formatter(self.test_data_set)
+        self.test_data = request_response_formatter('tests/' + self.test_data_set)
+        self.endpoint_alias = kwargs.get('test_method').__name__.upper() + '_URL'
+        self.endpoint = getattr(
+            TestRunner.ENDPOINTS, 
+            self.endpoint_alias
+            )
+        
+
+
 
     def process_tests(self, **kwargs):
         try:
@@ -257,21 +274,23 @@ class TestRunner(TestCase):
                 'details': e
             })
             raise
-        endpoint = getattr(
-            TestRunner.ENDPOINTS, 
-            kwargs.get('test_method').__name__.upper() + '_URL'
-            )
+
+
+        # endpoint = getattr(
+        #     TestRunner.ENDPOINTS, 
+        #     kwargs.get('test_method').__name__.upper() + '_URL'
+        #     )
 
         
 
             
         for each_test_data in self.test_data:
             self.set_test_vars(each_test_data)
-            if re.match(r'(.*/)?(<.*>)(/.*)?', endpoint):
-                for k, v in self.request_body.items():
-                    replace_for = kwargs.get('test_method').__name__.upper() + '_URL'
-                    endpoint = endpoint.replace('<' + k + '>', str(v))
-                    setattr(TestRunner.ENDPOINTS, replace_for, endpoint)
+            # if re.match(r'(.*/)?(<.*>)(/.*)?', endpoint):
+            #     for k, v in self.request_body.items():
+            #         replace_for = kwargs.get('test_method').__name__.upper() + '_URL'
+            #         endpoint = endpoint.replace('<' + k + '>', str(v))
+            #         setattr(TestRunner.ENDPOINTS, replace_for, endpoint)
                    
             try:
                 if self.request_body.get(
