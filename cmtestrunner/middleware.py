@@ -16,6 +16,7 @@ import random
 import numpy as np
 import requests
 import copy
+import time
 
 
 
@@ -84,7 +85,7 @@ def set_all_models():
 def parse_list_string(list_string):
     list_string_ = list_string.strip()
     try:
-        int(list_string_)
+        float(list_string_)
         return list_string_
     except Exception:
         special_str = '&!$%^*&@~`'
@@ -115,9 +116,9 @@ def simplify_data(data):
         return int(re.match(r'integer\(([0-9]+)\)', data)[1])
     elif re.match(r'bool\((.*)\)', data):
         return BOOL.get(re.match(r'bool\((.*)\)', data)[1])
-    elif re.match(r'Context\.(.*)', data):
-        context_variable = re.match(r'Context\.(.*)', data)[1]
-        return Context.get(context_variable)
+    # elif re.match(r'Context\.(.*)', data):
+    #     context_variable = re.match(r'Context\.(.*)', data)[1]
+    #     return Context.get(context_variable)
     else:
         return parse_list_string(data)
 
@@ -136,14 +137,16 @@ def request_response_formatter(file):
 
             for index, each_header in enumerate(header):
                 simplified_data = simplify_data(row[index])
+                parsed_obj = parse_snapshot(simplified_data)
                 if simplified_data:
                     if each_header[:5] == 'resp_':
                         resp[each_header[5:]] = simplified_data
                     elif each_header[:7] == 'header_':
-                        headers[each_header[7:]] = simplified_data
+                        if each_header[7:] == 'headers' and type(parsed_obj) is dict:
+                            headers.update(parsed_obj)
+                        else:
+                            headers[each_header[7:]] = parsed_obj
                     else:
-                        parsed_obj = parse_snapshot(simplified_data)
-            
                         if type(parsed_obj) is dict and each_header == 'request_body':
                             req.update(parsed_obj)
                         else:
@@ -237,7 +240,10 @@ def process_request_response(**kwargs):
         kwargs['url'],
         data=data,
         )
-    return format_response(response)
+    response_time = response.elapsed.total_seconds() * 1000
+    response = format_response(response)
+    response['response_time'] = float("%0.2f"%(response_time))
+    return response
 
 def unit_test_formatter(file_name):
     with open(settings.TEST_DATA_PATH + 'unittest/' + file_name, 'r')\
@@ -329,6 +335,7 @@ def generate_test_report(**kwargs):
         'response': json.dumps(kwargs.get('response'), indent=4, sort_keys=False, ensure_ascii=False),
         'expected_response': json.dumps(kwargs.get('expected_response'), indent=4, sort_keys=False, ensure_ascii=False),
         'error_info': kwargs.get('error_info'),
+        'response_time': kwargs.get('response_time'),
     }
     Constants.PASSED_LOG.append(report_)
     Constants.PASSED_TESTS.append(report)
@@ -352,13 +359,14 @@ def generate_analytics(fail_log):
     return prior_count
 
 
-def replace_attribute_value(obj, key_val):
-    keys = key_val.split('=')[0].split('.')
-    value = simplify_data(key_val.split('=')[1])
+def replace_attribute_value(obj, attributes):
+    key_val = attributes.split('=')
+    keys = key_val[0].split('.')
+    value = simplify_data(key_val[1])
     temp = [obj]
     for index, key in enumerate(keys):
         temp.append(temp[index].get(key))
-    temp[-1] = parse_list_string(value)
+    temp[-1] = value
     count = len(temp) - 1
     while(count):
         temp[count-1][keys[count-1]] = temp[count]
@@ -418,7 +426,8 @@ def get_attribute_value_from_json(json_obj, attribute_path):
                 if index is not None:
                     attribute_value = attribute_value[index]
             else:
-                raise Exception('attribute not found in dictionary object')
+                return attribute_path
+                # raise Exception('attribute not found in dictionary object')
         
         return attribute_value
 
@@ -433,17 +442,27 @@ def create_default_data_by_api(file):
     for _ in data:
         url = getattr(settings, _.get('req').pop('base_url').upper() + '_BASE_URL') + \
             _.get('req').pop('endpoint')
+        request_method = _.get('req').get('method', 'post')
+        request_body = _.get('req')
         client = requests.Session()
-        client.headers.update(_.get('headers'))
+        headers = _.get('headers')
+        
+        
+        request_body = replace_context_var(request_body)
+        client.headers.update(replace_context_var(headers))
+
         response = process_request_response(
             client=client,
-            url=url,
-            data=_.get('req'),
-            method='post'
+            url=form_endpoint(url, request_body),
+            data=request_body,
+            method=request_method
         )
 
         if int(response.get('status_code')) in range(200, 205):
             print('Default Data Created with ' + url)
+            if _.get('req').get('set_cookies'):
+                Context.cookies = get_cookie_string_from(client.cookies)
+
             context_vars = _.get('req').get('context', {})
             for var_name, element in context_vars.items():
                 if re.match(r'^(.*)\[\]$', var_name):
@@ -461,7 +480,44 @@ def create_default_data_by_api(file):
 
         if _.get('req').get('wait'):
             time.sleep(int(_.get('req').get('wait')))
+        
+
+    return response
+
+
+def form_endpoint(endpoint, request_body):
+    if re.match(r'(.*/)?(<.*>)(/.*)?', endpoint):
+        for k, v in request_body.items():
+            endpoint = endpoint.replace('<' + k + '>', str(v))
+
+    return endpoint
+
+
+def get_cookie_string_from(cookie_jar):
+    cookie_dict = cookie_jar.get_dict()
+    cookie_string = ''
+    for k,v in cookie_dict.items():
+        cookie_string = cookie_string + k + '=' + v + '; '
+    
+    return cookie_string[:-2]
+
+
+def replace_context_var(obj):
+    obj_ = copy.deepcopy(obj)
+    for k,v in obj_.items():
+        if re.match(r'Context\.(.*)', str(v)):
+            context_variable = re.match(r'Context\.(.*)', str(v))[1]
+            obj[k] = Context.get(context_variable)
+    return obj
+
+
+def set_default_data_to_context():
+    yml_files = os.listdir(settings.TEST_DATA_PATH + 'yml/')
+    for f in yml_files:
+        data = get_data_from_yml(f)
+        Context.update(data)
 
 
 
 Context = CustomDict()
+

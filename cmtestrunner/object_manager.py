@@ -2,15 +2,20 @@
 import json
 import copy
 import re
-
+import collections
 
 
 
 class ObjectManager():
 
-    def __init__(self, obj_x, obj_y):
+    def __init__(self, obj_x, obj_y, modifier_str=None):
         self.obj_1 = copy.deepcopy(obj_x)
         self.obj_2 = copy.deepcopy(obj_y)
+        if modifier_str:
+            self.modifier_str = modifier_str
+        else:
+            self.modifier_str = "<span class='text-danger'><<replace-here>></span>"
+                
         self.matched = True
         self.mismatch_keys = []
 
@@ -32,7 +37,6 @@ class ObjectManager():
     def match_dict_obj(self, dict_1, dict_2):
         if dict_1 == dict_2:
             return True
-
         
         keys = list(set(dict_1.keys()) | set(dict_2.keys()))
         
@@ -47,8 +51,10 @@ class ObjectManager():
                 else:
                     self.mismatch_keys.append(key)
                     self.matched = False
-                    dict_1[key] = "<span class='text-danger'>" + str(dict_1.get(key)) + '</span>'
-                    dict_2[key] = "<span class='text-danger'>" + str(dict_2.get(key)) + '</span>'
+                    dict_1[key] = self.modifier_str.replace('<<replace-here>>', str(dict_1.get(key)))
+                    dict_2[key] = self.modifier_str.replace('<<replace-here>>', str(dict_2.get(key)))
+                    # dict_1[key] = "<span class='text-danger'>" + str(dict_1.get(key)) + '</span>'
+                    # dict_2[key] = "<span class='text-danger'>" + str(dict_2.get(key)) + '</span>'
 
 
     
@@ -96,6 +102,8 @@ class ObjectManager():
             self.match_list_obj(self.obj_1, self.obj_2)
 
         if type(self.obj_2) is dict:
+            self.obj_1 = dict(collections.OrderedDict(sorted(self.obj_1.items())))
+            self.obj_2 = dict(collections.OrderedDict(sorted(self.obj_2.items())))
             self.match_dict_obj(self.obj_1, self.obj_2)
 
 

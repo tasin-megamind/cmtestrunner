@@ -2,13 +2,16 @@ from unittest import TestCase
 from rest_framework.test import APIClient
 from django.utils.translation import ugettext as _
 from django.utils import translation
-from .middleware import (request_response_formatter, get_all_locales,
-                                   get_translations, reset_db, BOOL,
-                                   set_auth_header, reset_auth_header, set_custom_headers,
-                                   set_lang_header, set_reset_seq_query, set_all_models,
-                                   unit_test_formatter, generate_test_report,
-                                   parse_snapshot, generate_analytics, get_test_endpoints,
-                                   Constants, mark_test_as_failed)
+from .middleware import (
+                            request_response_formatter, get_all_locales,
+                            get_translations, reset_db, BOOL,
+                            set_auth_header, reset_auth_header, set_custom_headers,
+                            set_lang_header, set_reset_seq_query, set_all_models,
+                            unit_test_formatter, generate_test_report,
+                            parse_snapshot, generate_analytics, get_test_endpoints,
+                            Constants, mark_test_as_failed, form_endpoint, replace_context_var,
+                            set_default_data_to_context
+                        )
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
 import inspect
@@ -30,6 +33,7 @@ class CustomTextTestResult(TextTestResult):
     def startTestRun(self):
         set_reset_seq_query()
         set_all_models()
+        set_default_data_to_context()
 
     def stopTestRun(self):
         self.testsRun = TestRunner.total_test_cases
@@ -90,7 +94,7 @@ class TestRunner(TestCase):
 
 
     def set_test_vars(self, test_data):
-        TestRunner.total_test_cases += 1
+        # TestRunner.total_test_cases += 1
         self.response = None
         self.request_body = test_data.get('req')
         if self.request_body.get('user_type'):
@@ -105,8 +109,7 @@ class TestRunner(TestCase):
                 reset_auth_header(TestRunner.client)
      
         self.reset_env = self.request_body.get('reset_env')
-        if self.reset_env:
-            self.set_environment(self.environment)
+        
 
         self.wait = self.request_body.get('wait', 0)
         self.exp_response = test_data.get('resp')
@@ -117,12 +120,15 @@ class TestRunner(TestCase):
             self.test_id) + ' =====>>>>> ' + self.test_data_set + \
             ' failed for language: %s.\n' % self.accept_lang
         self.custom_headers = test_data.get('headers')
-        set_custom_headers(TestRunner.client, self.custom_headers)
+        # set_custom_headers(TestRunner.client, self.custom_headers)
 
-        if re.match(r'(.*/)?(<.*>)(/.*)?', self.endpoint):
-            for k, v in self.request_body.items():
-                self.endpoint = self.endpoint.replace('<' + k + '>', str(v))
-                setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
+        # if re.match(r'(.*/)?(<.*>)(/.*)?', self.endpoint):
+        #     for k, v in self.request_body.items():
+        #         self.endpoint = self.endpoint.replace('<' + k + '>', str(v))
+        #         setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
+        self.endpoint = form_endpoint(self.endpoint, self.request_body)
+        setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
+
 
     def get_error(self, error_info, exp_response):
         errors = 'Validation failed for: ' + error_info + '\n\n'
@@ -159,7 +165,7 @@ class TestRunner(TestCase):
     def set_environment(self, envs):
         settings.TEST_SERVER = getattr(settings, self.package.upper() + '_BASE_URL')
         self.set_endpoints()
-        TestRunner.client = self.get_client()
+        TestRunner.client = self.get_client()   # need to find out why this is here again
         if settings.TEST_SERVER == 'http://testserver':
             TestRunner.reset_db = reset_db
         if TestRunner.query_executor:
@@ -175,7 +181,12 @@ class TestRunner(TestCase):
                 else:
                     env()
         except Exception as e:
-            raise Exception(env.__doc__ + ':: ' + str(e))
+            Constants.EXCEPTIONS.append({
+                'test_method': self.test_method.__name__,
+                'details': e
+            })
+            raise
+            # raise Exception(env.__doc__ + ':: ' + str(e))
 
 
     def set_headers(self, **kwargs):
@@ -206,6 +217,7 @@ class TestRunner(TestCase):
     def verify_test_result(self, exp_response, test_id, accept_lang):
 
         response_ = {}
+        response_time = self.response.pop('response_time')
 
         exp_response_ = copy.deepcopy(exp_response)
 
@@ -230,6 +242,7 @@ class TestRunner(TestCase):
         self.is_matched = object_manager.is_matched()
         error_info = ', '.join(object_manager.mismatched_keys())
         errors = self.get_error(error_info, exp_response)
+        
 
         generate_test_report(
                 test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
@@ -237,7 +250,8 @@ class TestRunner(TestCase):
                 request_body=self.request_body, response=self.response, 
                 request_header=dict(TestRunner.client.headers),
                 expected_response=exp_response,
-                error_info=error_info
+                error_info=error_info,
+                response_time=response_time
                 )
         
         try:
@@ -248,7 +262,8 @@ class TestRunner(TestCase):
 
 
     def set_test_attributes(self, **kwargs):
-        TestRunner.client = self.get_client()
+        # TestRunner.client = self.get_client()
+        self.test_method = kwargs.get('test_method')
         self.environment = kwargs.get('env', [])
         self.set_environment(self.environment)
         self.sub_test = kwargs.get('sub_test')
@@ -266,53 +281,41 @@ class TestRunner(TestCase):
 
 
     def process_tests(self, **kwargs):
-        try:
-            self.set_test_attributes(**kwargs)
-        except Exception as e:
-            Constants.EXCEPTIONS.append({
-                'test_method': kwargs.get('test_method').__name__,
-                'details': e
-            })
-            raise
-
-
-        # endpoint = getattr(
-        #     TestRunner.ENDPOINTS, 
-        #     kwargs.get('test_method').__name__.upper() + '_URL'
-        #     )
-
         
-
+        self.set_test_attributes(**kwargs)
+       
             
         for each_test_data in self.test_data:
             self.set_test_vars(each_test_data)
-            # if re.match(r'(.*/)?(<.*>)(/.*)?', endpoint):
-            #     for k, v in self.request_body.items():
-            #         replace_for = kwargs.get('test_method').__name__.upper() + '_URL'
-            #         endpoint = endpoint.replace('<' + k + '>', str(v))
-            #         setattr(TestRunner.ENDPOINTS, replace_for, endpoint)
-                   
+
+            if self.request_body.get(
+                    'accept_lang'
+            ) and self.request_body.get('accept_lang') != self.accept_lang:
+                TestRunner.total_test_cases -= 1
+                continue
+            time.sleep(float(self.wait)/1000)
+            if self.reset_env:
+                self.set_environment(self.environment)
+                
+                
+            self.request_body = replace_context_var(self.request_body)
+            set_custom_headers(TestRunner.client, replace_context_var(self.custom_headers))
+            self.exp_response = replace_context_var(self.exp_response)
             try:
-                if self.request_body.get(
-                        'accept_lang'
-                ) and self.request_body.get('accept_lang') != self.accept_lang:
-                    TestRunner.total_test_cases -= 1
-                    continue
-                time.sleep(self.wait/1000)
                 self.response = kwargs.get('test_method')(
                     client=TestRunner.client,
                     request_body=self.request_body,
                     accept_lang=self.accept_lang,
                     )
-
-                with self.subTest():
-                    self.verify_test_result(self.exp_response, self.test_id,
-                                            self.accept_lang)
             except Exception as e:
                 print(traceback.format_exc())
                 errors = self.get_error(self.error_info, self.exp_response)
                 with self.subTest():
                     self.assertEqual(None, e, msg=errors)
+            with self.subTest():
+                TestRunner.total_test_cases += 1
+                self.verify_test_result(self.exp_response, self.test_id,
+                                        self.accept_lang)
 
     def execute_tests(self, **kwargs):
         locales = get_all_locales()

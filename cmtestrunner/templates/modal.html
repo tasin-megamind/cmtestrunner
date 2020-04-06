@@ -17,23 +17,23 @@
                 
                 <h6 class="text-primary">Request Body</h6>
                 <div style="max-height: 400px; overflow: auto;  border-radius: 5px; border: 1px solid paleturquoise;">
-                    <p class="text-info" style="white-space: pre-wrap">{{obj.request_body|safe}}</p>
+                    <p class="text-info" style="white-space: pre-wrap">{{obj.request_body}}</p>
                 </div>
 
                 <br>
 
                 <h6 class="text-primary">Header</h6>
-                <p class="text-info" style="white-space: pre-wrap">{{obj.request_header|safe}}</p>
+                <p class="text-info" style="white-space: pre-wrap">{{obj.request_header}}</p>
                 <div class="container">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-5">
                             <h6 class="text-primary">Actual Response</h6>
                             <small class="text-info" style="white-space: pre-wrap">
                                 {{obj.response|safe}}
                             </small>
                                 
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-7">
                             <h6 class="text-primary">Expected Response</h6>
                             <small class="text-info" style="white-space: pre-wrap">
                                 {{obj.expected_response|safe}}

@@ -1,7 +1,15 @@
 <div class="card">
         <div class="card-header">
-            <a class="card-link collapsed" data-toggle="collapse" data-parent="#card-3"
-                href="#test-id-{{obj.test_id}}">{{obj.test}}</a>
+            <div class=row>
+                <div class="col-md-6">
+                    <a class="card-link collapsed" data-toggle="collapse" data-parent="#card-3"
+                        href="#test-id-{{obj.test_id}}">{{obj.test}}</a>
+                </div>
+                <div class="text-right col-md-6 text-secondary">
+                    {{obj.response_time}}ms
+                </div>
+            </div>
+            
         </div>    
         
         <div id="test-id-{{obj.test_id}}" class="collapse">
