@@ -96,6 +96,7 @@ class TestRunner(TestCase):
     def set_test_vars(self, test_data):
         # TestRunner.total_test_cases += 1
         self.response = None
+        reset_auth_header(TestRunner.client)
         self.request_body = test_data.get('req')
         if self.request_body.get('user_type'):
             user_type = self.request_body.pop('user_type')
@@ -105,8 +106,6 @@ class TestRunner(TestCase):
                 self.set_superuser_auth()
             elif user_type == 'invalid':
                 set_auth_header(TestRunner.client, 'XXXinvalid_tokenXXX')
-            elif user_type == 'none':
-                reset_auth_header(TestRunner.client)
      
         self.reset_env = self.request_body.get('reset_env')
         
@@ -232,6 +231,7 @@ class TestRunner(TestCase):
                 continue
             exp_response[key] = value = parse_snapshot(value, self.response.get(key))
             response_[key] = self.response.get(key)
+            exp_response = replace_context_var(exp_response)
         
         self.response = response_
 
@@ -300,7 +300,8 @@ class TestRunner(TestCase):
                 
             self.request_body = replace_context_var(self.request_body)
             set_custom_headers(TestRunner.client, replace_context_var(self.custom_headers))
-            self.exp_response = replace_context_var(self.exp_response)
+            # self.exp_response = replace_context_var(self.exp_response)
+            # print('EXP RESP:>>>>>>>>>>>>>>>>>>', self.exp_response)
             try:
                 self.response = kwargs.get('test_method')(
                     client=TestRunner.client,
