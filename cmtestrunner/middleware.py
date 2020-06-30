@@ -17,6 +17,7 @@ import numpy as np
 import requests
 import copy
 import time
+import _io
 
 
 
@@ -116,6 +117,8 @@ def simplify_data(data):
         return int(re.match(r'integer\(([0-9]+)\)', data)[1])
     elif re.match(r'bool\((.*)\)', data):
         return BOOL.get(re.match(r'bool\((.*)\)', data)[1])
+    elif re.match(r'attachment\((.*)\)', data):
+        return open(re.match('attachment\((.*)\)', data)[1], 'r')
     # elif re.match(r'Context\.(.*)', data):
     #     context_variable = re.match(r'Context\.(.*)', data)[1]
     #     return Context.get(context_variable)
@@ -146,6 +149,12 @@ def request_response_formatter(file):
                             headers.update(parsed_obj)
                         else:
                             headers[each_header[7:]] = parsed_obj
+                    elif type(parsed_obj) is _io.TextIOWrapper:
+                        files = req.get('files', {})
+                        files.update({
+                            each_header: parsed_obj
+                        })
+                        req['files'] = files
                     else:
                         if type(parsed_obj) is dict and each_header == 'request_body':
                             req.update(parsed_obj)
@@ -232,13 +241,14 @@ def process_request_response(**kwargs):
     client = kwargs.get('client')
     client.headers.update({'Content-Type': content_type})
     if settings.TEST_SERVER == 'testserver':
-        data = kwargs.get('data', None)
+        data = kwargs.get('data', {})
     else:
-        data = json.dumps(kwargs.get('data', None))
+        data = json.dumps(kwargs.get('data', {}))
     processor = getattr(client, kwargs['method'])
     response = processor(
         kwargs['url'],
         data=data,
+        files=kwargs.get('data', {}).get('files', {})
         )
     response_time = response.elapsed.total_seconds() * 1000
     response = format_response(response)
