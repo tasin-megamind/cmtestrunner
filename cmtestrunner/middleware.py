@@ -17,7 +17,7 @@ import numpy as np
 import requests
 import copy
 import time
-import _io
+import io
 
 
 
@@ -118,7 +118,8 @@ def simplify_data(data):
     elif re.match(r'bool\((.*)\)', data):
         return BOOL.get(re.match(r'bool\((.*)\)', data)[1])
     elif re.match(r'attachment\((.*)\)', data):
-        return open(re.match('attachment\((.*)\)', data)[1], 'r')
+        attachment_file = re.match('attachment\((.*)\)', data)[1]
+        return open(settings.TEST_DATA_PATH + 'upload/' + attachment_file, 'rb')
     # elif re.match(r'Context\.(.*)', data):
     #     context_variable = re.match(r'Context\.(.*)', data)[1]
     #     return Context.get(context_variable)
@@ -134,7 +135,7 @@ def request_response_formatter(file):
         all_req_resp = []
 
         for row in test_data:
-            req = {}
+            req = {'files': {}}
             resp = {}
             headers = {}
 
@@ -149,8 +150,8 @@ def request_response_formatter(file):
                             headers.update(parsed_obj)
                         else:
                             headers[each_header[7:]] = parsed_obj
-                    elif type(parsed_obj) is _io.TextIOWrapper:
-                        files = req.get('files', {})
+                    elif isinstance(parsed_obj, io.IOBase):
+                        files = req.get('files')
                         files.update({
                             each_header: parsed_obj
                         })
@@ -237,18 +238,22 @@ def format_response(response_obj):
     return response
 
 def process_request_response(**kwargs):
-    content_type = kwargs.get('format', 'application/json')
+    # content_type = kwargs.get('format', 'application/json')
     client = kwargs.get('client')
-    client.headers.update({'Content-Type': content_type})
-    if settings.TEST_SERVER == 'testserver':
-        data = kwargs.get('data', {})
-    else:
-        data = json.dumps(kwargs.get('data', {}))
+    # client.headers.update({'Content-Type': content_type})
+    if kwargs.get('data'):
+        files = kwargs.get('data').pop('files')
+        print(files)
+    # if settings.TEST_SERVER == 'testserver':
+    #     data = kwargs.get('data', {})
+    # else:
+    #     data = json.dumps(kwargs.get('data', {}))
+    
     processor = getattr(client, kwargs['method'])
     response = processor(
         kwargs['url'],
-        data=data,
-        files=kwargs.get('data', {}).get('files', {})
+        data=kwargs.get('data', {}),
+        files=files
         )
     response_time = response.elapsed.total_seconds() * 1000
     response = format_response(response)

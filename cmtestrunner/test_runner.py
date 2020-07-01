@@ -226,7 +226,7 @@ class TestRunner(TestCase):
                     exp_response[key], accept_lang)
             if key == 'response':
                 exp_response.pop('response')
-                exp_response.update(parse_snapshot(value, self.response))
+                exp_response.update(parse_snapshot(value, self.response))   # there is a bug in this line, response may not be a dictionary always
                 response_.update(self.response)
                 continue
             exp_response[key] = value = parse_snapshot(value, self.response.get(key))
@@ -296,9 +296,11 @@ class TestRunner(TestCase):
             time.sleep(float(self.wait)/1000)
             if self.reset_env:
                 self.set_environment(self.environment)
-                
-                
+            
+        
+            files = self.request_body.pop('files')
             self.request_body = replace_context_var(self.request_body)
+            self.request_body['files'] = files
             set_custom_headers(TestRunner.client, replace_context_var(self.custom_headers))
             # self.exp_response = replace_context_var(self.exp_response)
             # print('EXP RESP:>>>>>>>>>>>>>>>>>>', self.exp_response)
