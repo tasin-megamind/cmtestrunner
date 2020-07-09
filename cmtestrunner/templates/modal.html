@@ -16,32 +16,36 @@
                 {% endif %}
                 
                 <h6 class="text-primary">Request Body</h6>
-                <div style="max-height: 400px; overflow: auto;  border-radius: 5px; border: 1px solid paleturquoise;">
-                    <p class="text-info" style="white-space: pre-wrap">{{obj.request_body}}</p>
+                <div class="container-boxes">
+                    <pre><code class="text-info">{{obj.request_body}}</code></pre>
                 </div>
-
                 <br>
 
                 <h6 class="text-primary">Header</h6>
-                <p class="text-info" style="white-space: pre-wrap">{{obj.request_header}}</p>
-                <div class="container">
+                <div class="container-boxes">
+                    <pre><code class="text-info">{{obj.request_header}}</code></pre>
+                </div>
+                <br>
+                
                     <div class="row">
-                        <div class="col-md-5">
+                        <div class="col-md-6">
                             <h6 class="text-primary">Actual Response</h6>
-                            <small class="text-info" style="white-space: pre-wrap">
-                                {{obj.response|safe}}
-                            </small>
+                                <small>
+                                    <div class="container-boxes">
+                                        <pre><code class="text-info">{{obj.response|safe}}</code></pre></small>
+                                    </div>
                                 
                         </div>
-                        <div class="col-md-7">
+                        <div class="col-md-6">
                             <h6 class="text-primary">Expected Response</h6>
-                            <small class="text-info" style="white-space: pre-wrap">
-                                {{obj.expected_response|safe}}
-                            </small>
+                            <small>
+                                <div class="container-boxes">
+                                <pre class="lang-json"><code class="text-info">{{obj.expected_response|safe}}</code></pre>
+                            </div></small>
                         </div>
 
                     </div>
-                </div>
+                
                 <br>
 
             </div>

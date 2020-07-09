@@ -24,6 +24,9 @@ class Command(BaseCommand):
         self.create_dir(settings.BASE_DIR + '/utils/test/data/unittest')
         self.create_dir(settings.BASE_DIR + '/utils/test/data/snapshots')
         self.create_dir(settings.BASE_DIR + '/utils/test/data/upload')
+        self.create_dir(settings.BASE_DIR + '/utils/test/data/tests')
+        self.create_dir(settings.BASE_DIR + '/utils/test/data/default')
+        self.create_dir(settings.BASE_DIR + '/utils/test/data/yml')
         self.create_dir(settings.BASE_DIR + '/utils/test/translation')
         self.create_dir(settings.BASE_DIR + '/utils/fixtures')
 

@@ -151,6 +151,7 @@ def request_response_formatter(file):
                         else:
                             headers[each_header[7:]] = parsed_obj
                     elif isinstance(parsed_obj, io.IOBase):
+                        req[each_header] = row[index]
                         files = req.get('files')
                         files.update({
                             each_header: parsed_obj
@@ -243,7 +244,6 @@ def process_request_response(**kwargs):
     # client.headers.update({'Content-Type': content_type})
     if kwargs.get('data'):
         files = kwargs.get('data').pop('files')
-        print(files)
     # if settings.TEST_SERVER == 'testserver':
     #     data = kwargs.get('data', {})
     # else:

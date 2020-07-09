@@ -1,11 +1,9 @@
 from cmtestrunner import TestRunner
-from utils.test.middleware import reset_db
-from utils.test.executor import executor
 
 
 class CMTestRunner(TestRunner):
 
     @classmethod
     def setUpClass(self):
-        TestRunner.reset_db = reset_db
-        TestRunner.query_executor = executor
+        TestRunner.reset_db = None
+        TestRunner.query_executor = None

@@ -1,6 +1,7 @@
 from unittest import TestCase
 import <app>.test_methods as test_methods
 from utils.test.test_runner import CMTestRunner
+import utils.test.middleware as middleware
 
 class Test<App>API(CMTestRunner):
 

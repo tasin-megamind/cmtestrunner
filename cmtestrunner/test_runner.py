@@ -218,6 +218,8 @@ class TestRunner(TestCase):
         response_ = {}
         response_time = self.response.pop('response_time')
 
+        
+
         exp_response_ = copy.deepcopy(exp_response)
 
         for key, value in exp_response_.items():
@@ -243,7 +245,6 @@ class TestRunner(TestCase):
         error_info = ', '.join(object_manager.mismatched_keys())
         errors = self.get_error(error_info, exp_response)
         
-
         generate_test_report(
                 test_name=self.test_data_set, priority=self.priority, test_id=self.test_id, 
                 purpose=self.test_purpose, reproduce_steps=self.reproduce_steps,
@@ -283,7 +284,6 @@ class TestRunner(TestCase):
     def process_tests(self, **kwargs):
         
         self.set_test_attributes(**kwargs)
-       
             
         for each_test_data in self.test_data:
             self.set_test_vars(each_test_data)
@@ -302,14 +302,14 @@ class TestRunner(TestCase):
             self.request_body = replace_context_var(self.request_body)
             self.request_body['files'] = files
             set_custom_headers(TestRunner.client, replace_context_var(self.custom_headers))
-            # self.exp_response = replace_context_var(self.exp_response)
-            # print('EXP RESP:>>>>>>>>>>>>>>>>>>', self.exp_response)
+            
             try:
                 self.response = kwargs.get('test_method')(
                     client=TestRunner.client,
                     request_body=self.request_body,
                     accept_lang=self.accept_lang,
                     )
+                
             except Exception as e:
                 print(traceback.format_exc())
                 errors = self.get_error(self.error_info, self.exp_response)
