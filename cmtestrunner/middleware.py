@@ -119,7 +119,7 @@ def simplify_data(data):
         return BOOL.get(re.match(r'bool\((.*)\)', data)[1])
     elif re.match(r'attachment\((.*)\)', data):
         attachment_file = re.match('attachment\((.*)\)', data)[1]
-        return open(settings.TEST_DATA_PATH + 'upload/' + attachment_file, 'rb')
+        return open(settings.TEST_DATA_PATH + '/upload/' + attachment_file, 'rb')
     # elif re.match(r'Context\.(.*)', data):
     #     context_variable = re.match(r'Context\.(.*)', data)[1]
     #     return Context.get(context_variable)
@@ -129,7 +129,7 @@ def simplify_data(data):
 
 
 def request_response_formatter(file):
-    with open(settings.TEST_DATA_PATH + file, 'r') as test_file:
+    with open(settings.TEST_DATA_PATH + '/' + file, 'r') as test_file:
         test_data = csv.reader(test_file, delimiter=',', quotechar='"')
         header = next(test_data)
         all_req_resp = []
@@ -151,7 +151,6 @@ def request_response_formatter(file):
                         else:
                             headers[each_header[7:]] = parsed_obj
                     elif isinstance(parsed_obj, io.IOBase):
-                        req[each_header] = row[index]
                         files = req.get('files')
                         files.update({
                             each_header: parsed_obj
@@ -184,7 +183,7 @@ def reset_db(*arg):
 
 def get_translations(file):
     with open(
-            settings.TEST_PAYLOAD_PATH + 'translation/' + file + '.yml',
+            settings.TEST_PAYLOAD_PATH + '/translation/' + file + '.yml',
             'r',
             encoding='utf8') as fp:
         translations = load(fp, Loader)
@@ -200,7 +199,7 @@ BOOL = {
 }
 
 def get_data_from_yml(file):
-    with open(settings.TEST_DATA_PATH + 'yml/' + file, encoding='utf8') as fp:
+    with open(settings.TEST_DATA_PATH + '/yml/' + file, encoding='utf8') as fp:
         data = load(fp,Loader)
     return data
 
@@ -239,29 +238,37 @@ def format_response(response_obj):
     return response
 
 def process_request_response(**kwargs):
-    # content_type = kwargs.get('format', 'application/json')
+    files = None
     client = kwargs.get('client')
-    # client.headers.update({'Content-Type': content_type})
+    
     if kwargs.get('data'):
         files = kwargs.get('data').pop('files')
-    # if settings.TEST_SERVER == 'testserver':
-    #     data = kwargs.get('data', {})
-    # else:
-    #     data = json.dumps(kwargs.get('data', {}))
-    
+
+    data = kwargs.get('data', {})
+
     processor = getattr(client, kwargs['method'])
-    response = processor(
-        kwargs['url'],
-        data=kwargs.get('data', {}),
-        files=files
-        )
+    if files:
+        response = processor(
+            kwargs['url'],
+            data=data,
+            files=files
+            )
+    else:
+        response = processor(
+            kwargs['url'],
+            json=data
+            )
+    
+    for k,v in files.items():
+        data[k] = str(v)
+
     response_time = response.elapsed.total_seconds() * 1000
     response = format_response(response)
     response['response_time'] = float("%0.2f"%(response_time))
     return response
 
 def unit_test_formatter(file_name):
-    with open(settings.TEST_DATA_PATH + 'unittest/' + file_name, 'r')\
+    with open(settings.TEST_DATA_PATH + '/unittest/' + file_name, 'r')\
             as test_file:
         test_data = csv.reader(test_file, delimiter=',', quotechar='"')
         header = next(test_data)
@@ -323,7 +330,7 @@ def dict_to_obj(resp):
             }), object_hook=lambda d: CustomDict(d))
 
 def get_test_endpoints(file):
-    with open(settings.TEST_PAYLOAD_PATH + file, 'r') as fp:
+    with open(settings.TEST_PAYLOAD_PATH + '/' + file, 'r') as fp:
         endpoints = load(fp, Loader)
 
     for k, v in endpoints.items():
@@ -397,9 +404,9 @@ def parse_snapshot(snapshot, actual=None):
         snapshot_file = matched[1]
         
         if os.path.isfile(
-            settings.TEST_DATA_PATH + 'snapshots/' + snapshot_file):
+            settings.TEST_DATA_PATH + '/snapshots/' + snapshot_file):
 
-            f = open(settings.TEST_DATA_PATH + 'snapshots/' +
+            f = open(settings.TEST_DATA_PATH + '/snapshots/' +
                                 snapshot_file, 'r')
 
             try:
@@ -416,7 +423,7 @@ def parse_snapshot(snapshot, actual=None):
                 return obj
         else:
             if actual:
-                f = open(settings.TEST_DATA_PATH + 'snapshots/' +
+                f = open(settings.TEST_DATA_PATH + '/snapshots/' +
                                 snapshot_file, 'w', encoding='utf-8')
             
                 json.dump(actual, f, ensure_ascii=False, indent=4)
@@ -527,7 +534,7 @@ def replace_context_var(obj):
 
 
 def set_default_data_to_context():
-    yml_files = os.listdir(settings.TEST_DATA_PATH + 'yml/')
+    yml_files = os.listdir(settings.TEST_DATA_PATH + '/yml/')
     for f in yml_files:
         data = get_data_from_yml(f)
         Context.update(data)

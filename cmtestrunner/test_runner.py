@@ -41,27 +41,25 @@ class CustomTextTestResult(TextTestResult):
         if TestRunner.query_executor:
             TestRunner.query_executor.quit()
 
-        if self.testsRun:
+        rendered = render_to_string('report.html', {
+            'priority_fail_count': analytics,
+            'passed_tests': Constants.PASSED_TESTS,
+            'failed_tests': Constants.FAILED_TESTS,
+            'success_count': self.testsRun - len(Constants.FAIL_LOG),
+            'success_percentage': float("%0.2f"%((self.testsRun - len(Constants.FAIL_LOG))/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+            'fail_count': len(Constants.FAIL_LOG),
+            'fail_percentage': float("%0.2f"%(len(Constants.FAIL_LOG)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+            'exception_count': len(Constants.EXCEPTIONS),
+            'exception_percentage': float("%0.2f"%(len(Constants.EXCEPTIONS)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+            'exception_details': Constants.EXCEPTIONS
+        })
 
-            rendered = render_to_string('report.html', {
-                'priority_fail_count': analytics,
-                'passed_tests': Constants.PASSED_TESTS,
-                'failed_tests': Constants.FAILED_TESTS,
-                'success_count': self.testsRun - len(Constants.FAIL_LOG),
-                'success_percentage': float("%0.2f"%((self.testsRun - len(Constants.FAIL_LOG))/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
-                'fail_count': len(Constants.FAIL_LOG),
-                'fail_percentage': float("%0.2f"%(len(Constants.FAIL_LOG)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
-                'exception_count': len(Constants.EXCEPTIONS),
-                'exception_percentage': float("%0.2f"%(len(Constants.EXCEPTIONS)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
-                'exception_details': Constants.EXCEPTIONS
-            })
+        
+        if not os.path.exists(settings.TEST_PAYLOAD_PATH + '/reports'):
+            os.makedirs(settings.TEST_PAYLOAD_PATH + '/reports')
 
-            
-            if not os.path.exists(settings.TEST_PAYLOAD_PATH + 'reports'):
-                os.makedirs(settings.TEST_PAYLOAD_PATH + 'reports')
-
-            f = open(settings.TEST_PAYLOAD_PATH + 'reports/report.html', 'w')
-            f.write(rendered)
+        f = open(settings.TEST_PAYLOAD_PATH + '/reports/report.html', 'w')
+        f.write(rendered)
 
 
     def startTest(self, test):
