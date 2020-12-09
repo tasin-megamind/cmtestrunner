@@ -17,31 +17,32 @@ class Command(BaseCommand):
         print('created ' + file)
 
     def handle(self, *args, **kwargs):
-        self.create_dir(settings.BASE_DIR + '/utils')
-        self.create_dir(settings.BASE_DIR + '/utils/test')
-        self.create_dir(settings.BASE_DIR + '/utils/test/reports')
-        self.create_dir(settings.BASE_DIR + '/utils/test/data')
-        self.create_dir(settings.BASE_DIR + '/utils/test/data/unittest')
-        self.create_dir(settings.BASE_DIR + '/utils/test/data/snapshots')
-        self.create_dir(settings.BASE_DIR + '/utils/test/data/upload')
-        self.create_dir(settings.BASE_DIR + '/utils/test/data/tests')
-        self.create_dir(settings.BASE_DIR + '/utils/test/data/default')
-        self.create_dir(settings.BASE_DIR + '/utils/test/data/yml')
-        self.create_dir(settings.BASE_DIR + '/utils/test/translation')
-        self.create_dir(settings.BASE_DIR + '/utils/fixtures')
+        base_dir = str(settings.BASE_DIR)
+        self.create_dir(base_dir + '/utils/test')
+        self.create_dir(base_dir + '/utils')
+        self.create_dir(base_dir + '/utils/test/reports')
+        self.create_dir(base_dir + '/utils/test/data')
+        self.create_dir(base_dir + '/utils/test/data/unittest')
+        self.create_dir(base_dir + '/utils/test/data/snapshots')
+        self.create_dir(base_dir + '/utils/test/data/upload')
+        self.create_dir(base_dir + '/utils/test/data/tests')
+        self.create_dir(base_dir + '/utils/test/data/default')
+        self.create_dir(base_dir + '/utils/test/data/yml')
+        self.create_dir(base_dir + '/utils/test/translation')
+        self.create_dir(base_dir + '/utils/fixtures')
 
-        self.create_file(settings.BASE_DIR + '/utils/__init__.py')
-        self.create_file(settings.BASE_DIR + '/utils/test/endpoints.yml')
-        self.create_file(settings.BASE_DIR + '/utils/test/unittest.py')
-        self.create_file(settings.BASE_DIR + '/utils/test/test_runner.py')
-        self.create_file(settings.BASE_DIR + '/utils/test/middleware.py')
+        self.create_file(base_dir + '/utils/__init__.py')
+        self.create_file(base_dir + '/utils/test/endpoints.yml')
+        self.create_file(base_dir + '/utils/test/unittest.py')
+        self.create_file(base_dir + '/utils/test/test_runner.py')
+        self.create_file(base_dir + '/utils/test/middleware.py')
 
         templates_dir = pkg_resources.resource_filename('cmtestrunner', 'management/templates/')
         test_runner_content = None
         with open(templates_dir + 'test_runner_template.txt', 'r') as f:
             test_runner_content = f.read()
 
-        with open(settings.BASE_DIR + '/utils/test/test_runner.py' , 'w') as f:
+        with open(base_dir + '/utils/test/test_runner.py' , 'w') as f:
             f.write(test_runner_content)
 
 

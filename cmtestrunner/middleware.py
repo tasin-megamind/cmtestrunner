@@ -455,6 +455,24 @@ def get_attribute_value_from_json(json_obj, attribute_path):
 
     raise Exception('get_attribute_value_from_json: argument error')
 
+def set_context_vars(context_vars, response):
+
+    if context_vars == '*':
+        for var_name, value in response:
+            setattr(Context, var_name, value)
+
+    else:
+        for var_name, element in context_vars.items():
+            if re.match(r'^(.*)\[\]$', var_name):
+                var_name = re.match(r'^(.*)\[\]$', var_name)[1]
+                if Context.get(var_name):
+                    Context.get(var_name).append(get_attribute_value_from_json(response, element))
+                else:
+                    empty_list = []
+                    empty_list.append(get_attribute_value_from_json(response, element))
+                    setattr(Context, var_name, empty_list)
+            else:
+                setattr(Context, var_name, get_attribute_value_from_json(response, element))
 
 
 # expects csv file with base_url alias, endpoint, headers & req body
@@ -484,19 +502,22 @@ def create_default_data_by_api(file):
             print('Default Data Created with ' + url)
             if _.get('req').get('set_cookies'):
                 Context.cookies = get_cookie_string_from(client.cookies)
+            set_context_vars(_.get('req').get('context', {}), response)
+            # if _.get('req').get('set_cookies'):
+            #     Context.cookies = get_cookie_string_from(client.cookies)
 
-            context_vars = _.get('req').get('context', {})
-            for var_name, element in context_vars.items():
-                if re.match(r'^(.*)\[\]$', var_name):
-                    var_name = re.match(r'^(.*)\[\]$', var_name)[1]
-                    if Context.get(var_name):
-                        Context.get(var_name).append(get_attribute_value_from_json(response, element))
-                    else:
-                        empty_list = []
-                        empty_list.append(get_attribute_value_from_json(response, element))
-                        setattr(Context, var_name, empty_list)
-                else:
-                    setattr(Context, var_name, get_attribute_value_from_json(response, element))
+            # context_vars = _.get('req').get('context', {})
+            # for var_name, element in context_vars.items():
+            #     if re.match(r'^(.*)\[\]$', var_name):
+            #         var_name = re.match(r'^(.*)\[\]$', var_name)[1]
+            #         if Context.get(var_name):
+            #             Context.get(var_name).append(get_attribute_value_from_json(response, element))
+            #         else:
+            #             empty_list = []
+            #             empty_list.append(get_attribute_value_from_json(response, element))
+            #             setattr(Context, var_name, empty_list)
+            #     else:
+            #         setattr(Context, var_name, get_attribute_value_from_json(response, element))
         else:
             raise Exception('default data generation failed: ' + url + '\n\n' + str(_.get('req')) + '\n\n' + str(response))
 
@@ -542,4 +563,3 @@ def set_default_data_to_context():
 
 
 Context = CustomDict()
-
