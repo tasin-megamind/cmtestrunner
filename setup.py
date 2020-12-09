@@ -1,7 +1,7 @@
 import setuptools
 
 setuptools.setup(name='cmtestrunner',
-      version='2.1.2',
+      version='2.1.3',
       description='custom test runner for API test',
       author='Tasin Nawaz',
       author_email='tasin.buet@gmail.com',
