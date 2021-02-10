@@ -105,13 +105,13 @@ def parse_list_string(list_string):
 
 def simplify_data(data):
     if data == 'N/A':
-        return False
+        return None
 
     # if re.match(r'string\((.*)\)', data):
     #     return re.match(r'string\((.*)\)', data)[1]
     if re.match(r'random\((.*, [0-9]+)\)', data):
         matched = re.match(r'random\((.*), ([0-9]+)\)', data)
-        random_str = random.choice(matched[1]) * int(matched[2])
+        random_str = ''.join(random.choice(matched[1]) for _ in range(int(matched[2])))
         return random_str
     elif re.match(r'integer\(([0-9]+)\)', data):
         return int(re.match(r'integer\(([0-9]+)\)', data)[1])
@@ -142,7 +142,7 @@ def request_response_formatter(file):
             for index, each_header in enumerate(header):
                 simplified_data = simplify_data(row[index])
                 parsed_obj = parse_snapshot(simplified_data)
-                if simplified_data:
+                if simplified_data is not None:
                     if each_header[:5] == 'resp_':
                         resp[each_header[5:]] = simplified_data
                     elif each_header[:7] == 'header_':
@@ -256,12 +256,12 @@ def process_request_response(**kwargs):
     else:
         response = processor(
             kwargs['url'],
-            json=data
+            json=data,
+            verify=False
             )
     
     for k,v in files.items():
         data[k] = str(v)
-
     response_time = response.elapsed.total_seconds() * 1000
     response = format_response(response)
     response['response_time'] = float("%0.2f"%(response_time))
@@ -548,9 +548,15 @@ def get_cookie_string_from(cookie_jar):
 def replace_context_var(obj):
     obj_ = copy.deepcopy(obj)
     for k,v in obj_.items():
-        if re.match(r'Context\.(.*)', str(v)):
-            context_variable = re.match(r'Context\.(.*)', str(v))[1]
-            obj[k] = Context.get(context_variable)
+        context = re.match(r'^Context\.([A-Za-z0-9_]+)(\[([0-9]+)\])?$', str(v))
+        if context:
+            if context[1] and context[3]:
+                obj[k] = Context.get(context[1])[int(context[3])]
+            else:
+                obj[k] = Context.get(context[1])
+        # if re.match(r'Context\.(.*)', str(v)):
+        #     context_variable = re.match(r'Context\.(.*)', str(v))[1]
+        #     obj[k] = Context.get(context_variable)
     return obj
 
 

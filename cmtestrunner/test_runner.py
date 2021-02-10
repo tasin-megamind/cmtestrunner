@@ -41,6 +41,9 @@ class CustomTextTestResult(TextTestResult):
         if TestRunner.query_executor:
             TestRunner.query_executor.quit()
 
+        if not (self.testsRun + len(Constants.EXCEPTIONS)):
+            raise Exception('Something went wrong')
+
         rendered = render_to_string('report.html', {
             'priority_fail_count': analytics,
             'passed_tests': Constants.PASSED_TESTS,
@@ -182,8 +185,7 @@ class TestRunner(TestCase):
                 'test_method': self.test_method.__name__,
                 'details': e
             })
-            raise
-            # raise Exception(env.__doc__ + ':: ' + str(e))
+            raise Exception(env.__doc__ + ':: ' + str(e))
 
 
     def set_headers(self, **kwargs):
@@ -214,7 +216,8 @@ class TestRunner(TestCase):
     def verify_test_result(self, exp_response, test_id, accept_lang):
 
         response_ = {}
-        response_time = self.response.pop('response_time')
+        if self.response:
+            response_time = self.response.pop('response_time')
 
         
 
@@ -231,7 +234,7 @@ class TestRunner(TestCase):
                 continue
             exp_response[key] = value = parse_snapshot(value, self.response.get(key))
             response_[key] = self.response.get(key)
-            exp_response = replace_context_var(exp_response)
+        exp_response = replace_context_var(exp_response)
         
         self.response = response_
 
@@ -294,7 +297,7 @@ class TestRunner(TestCase):
             time.sleep(float(self.wait)/1000)
             if self.reset_env:
                 self.set_environment(self.environment)
-            
+                self.request_body.pop('reset_env')
         
             files = self.request_body.pop('files')
             self.request_body = replace_context_var(self.request_body)
@@ -313,6 +316,12 @@ class TestRunner(TestCase):
                 errors = self.get_error(self.error_info, self.exp_response)
                 with self.subTest():
                     self.assertEqual(None, e, msg=errors)
+                Constants.EXCEPTIONS.append({
+                    'test_method': self.test_method.__name__,
+                    'details': e
+                })
+                raise Exception('Exception Occured: ' + str(e))
+            
             with self.subTest():
                 TestRunner.total_test_cases += 1
                 self.verify_test_result(self.exp_response, self.test_id,
