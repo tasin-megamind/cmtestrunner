@@ -18,17 +18,15 @@ import requests
 import copy
 import time
 import io
-
-
-
+from .json_traverser import JsonTraverser
 
 class Constants():
     RESET_SEQ_QUERY = ''
     MODELS = []
     FAIL_LOG = []
-    FAILED_TESTS = []
+    FAILED_TESTS = {}
     EXCEPTIONS = []
-    PASSED_TESTS = []
+    PASSED_TESTS = {}
     PASSED_LOG = []
 
 
@@ -107,8 +105,6 @@ def simplify_data(data):
     if data == 'N/A':
         return None
 
-    # if re.match(r'string\((.*)\)', data):
-    #     return re.match(r'string\((.*)\)', data)[1]
     if re.match(r'random\((.*, [0-9]+)\)', data):
         matched = re.match(r'random\((.*), ([0-9]+)\)', data)
         random_str = ''.join(random.choice(matched[1]) for _ in range(int(matched[2])))
@@ -120,9 +116,7 @@ def simplify_data(data):
     elif re.match(r'attachment\((.*)\)', data):
         attachment_file = re.match('attachment\((.*)\)', data)[1]
         return open(settings.TEST_DATA_PATH + '/upload/' + attachment_file, 'rb')
-    # elif re.match(r'Context\.(.*)', data):
-    #     context_variable = re.match(r'Context\.(.*)', data)[1]
-    #     return Context.get(context_variable)
+
     else:
         return parse_list_string(data)
 
@@ -235,6 +229,7 @@ def format_response(response_obj):
         response = {'content': response}
 
     response['status_code'] = str(response_obj.status_code)
+    response['headers'] = response_obj.headers
     return response
 
 def process_request_response(**kwargs):
@@ -339,12 +334,16 @@ def get_test_endpoints(file):
     return endpoints
 
 
-
+def get_test_name(test_data_set):
+    test_name = test_data_set[:-4]
+    test_name = test_name.replace('_', ' ')
+    return test_name
 
 def generate_test_report(**kwargs):
     # kwargs = dict_to_obj(kwargs)
+    test_name = get_test_name(kwargs.get('test_name'))
     report_ = [
-                kwargs.get('test_name'), kwargs.get('test_id'), 
+                test_name, kwargs.get('test_id'), 
                 kwargs.get('priority'), kwargs.get('purpose'), 
                 kwargs.get('reproduce_steps')
             ]
@@ -358,14 +357,20 @@ def generate_test_report(**kwargs):
         'expected_response': json.dumps(kwargs.get('expected_response'), indent=4, sort_keys=False, ensure_ascii=False),
         'error_info': kwargs.get('error_info'),
         'response_time': kwargs.get('response_time'),
+        'status_code': kwargs.get('status_code'),
+        'endpoint': kwargs.get('endpoint'),
+        'passed': True
     }
     Constants.PASSED_LOG.append(report_)
-    Constants.PASSED_TESTS.append(report)
+    if not Constants.PASSED_TESTS.get(test_name):
+        Constants.PASSED_TESTS[test_name] = [report]
+    else:
+        Constants.PASSED_TESTS[test_name].append(report)
 
-def mark_test_as_failed():
+def mark_test_as_failed(test_data_set):
+    test_name = get_test_name(test_data_set)
     Constants.FAIL_LOG.append(Constants.PASSED_LOG[-1])
-    Constants.FAILED_TESTS.append(Constants.PASSED_TESTS[-1])
-    del Constants.PASSED_TESTS[-1]
+    Constants.PASSED_TESTS[test_name][-1]['passed'] = False
     del Constants.PASSED_LOG[-1]
     # Constants.FAILED_TESTS[-1]['failed'] = True
 
@@ -503,22 +508,6 @@ def create_default_data_by_api(file):
             if _.get('req').get('set_cookies'):
                 Context.cookies = get_cookie_string_from(client.cookies)
             set_context_vars(_.get('req').get('context', {}), response)
-            # if _.get('req').get('set_cookies'):
-            #     Context.cookies = get_cookie_string_from(client.cookies)
-
-            # context_vars = _.get('req').get('context', {})
-            # for var_name, element in context_vars.items():
-            #     if re.match(r'^(.*)\[\]$', var_name):
-            #         var_name = re.match(r'^(.*)\[\]$', var_name)[1]
-            #         if Context.get(var_name):
-            #             Context.get(var_name).append(get_attribute_value_from_json(response, element))
-            #         else:
-            #             empty_list = []
-            #             empty_list.append(get_attribute_value_from_json(response, element))
-            #             setattr(Context, var_name, empty_list)
-            #     else:
-            #         setattr(Context, var_name, get_attribute_value_from_json(response, element))
-        else:
             raise Exception('default data generation failed: ' + url + '\n\n' + str(_.get('req')) + '\n\n' + str(response))
 
         if _.get('req').get('wait'):
@@ -546,18 +535,13 @@ def get_cookie_string_from(cookie_jar):
 
 
 def replace_context_var(obj):
-    obj_ = copy.deepcopy(obj)
-    for k,v in obj_.items():
-        context = re.match(r'^Context\.([A-Za-z0-9_]+)(\[([0-9]+)\])?$', str(v))
-        if context:
-            if context[1] and context[3]:
-                obj[k] = Context.get(context[1])[int(context[3])]
-            else:
-                obj[k] = Context.get(context[1])
-        # if re.match(r'Context\.(.*)', str(v)):
-        #     context_variable = re.match(r'Context\.(.*)', str(v))[1]
-        #     obj[k] = Context.get(context_variable)
-    return obj
+    traverser = JsonTraverser(
+        object=obj, 
+        find_with_regex='Context\.(.*)', 
+        replace_with=Context
+        )
+    traverser.play()
+    return traverser.get_analyzed()
 
 
 def set_default_data_to_context():
@@ -565,7 +549,7 @@ def set_default_data_to_context():
     for f in yml_files:
         data = get_data_from_yml(f)
         Context.update(data)
-
+    return Context
 
 
 Context = CustomDict()

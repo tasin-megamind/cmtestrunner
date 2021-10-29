@@ -1,40 +1,35 @@
-<div class="card">
-        <div class="card-header">
-            <div class=row>
-                <div class="col-md-6">
-                    <a class="card-link collapsed" data-toggle="collapse" data-parent="#card-3"
-                        href="#test-id-{{obj.test_id}}">{{obj.test}}</a>
-                </div>
-                <div class="text-right col-md-6 text-secondary">
-                    {{obj.response_time}}ms
-                </div>
-            </div>
-            
-        </div>    
-        
-        <div id="test-id-{{obj.test_id}}" class="collapse">
-            <div class="card-body">
-                <ul>
-                    {% for step in obj.reproduce_steps %}
-                        <li class="list-item">
-                            {{step}}
-                        </li>
-                    {% endfor %}
 
-                    <div class="row">
-                        <div class="col-md-4">
-                        </div>
-                        <div class="col-md-4">
-                            <br>
-                            <button type="button" class="btn btn-info" id="modal-{{obj.test_id}}" href="#modal-container-{{obj.test_id}}" data-toggle="modal">
-                                    View Details
-                            </button>
-                            {% include "modal.html" with obj=obj %}	
-                        </div>									
-                        <div class="col-md-4">
-                        </div>
+            <div class=row>
+                <div class="col-2" style="text-align: center; padding-right: 0%;">
+                    <small><strong># {{obj.test_id}}</strong></small>
+                </div>
+                <div class="col" style="margin-left: 0%; padding-left: 1px;">
+                    {% if obj.passed %}
+                    <i class="fa-solid fa-circle-check pass_icon"></i>
+                    {% else %}
+                    <i class="fas fa-bug fail_icon"></i>
+                    {% endif %}
+               
+                    <a href="#modal-container-{{obj.test_id}}" data-toggle="modal">
+                        {{obj.test}}
+                    </a>
+                    {% if obj.status_code != "500" %}
+                        <span class="badge badge-pill badge-secondary badge-status-code">{{obj.status_code}}</span>
+                    {% else %}
+                        <span class="badge badge-pill badge-danger badge-status-code">{{obj.status_code}}</span>
+                    {% endif %}
+                    {% include "modal.html" with obj=obj %}
+                </div>
+                {% if obj.response_time < 1000 %}
+                    <div class="col-1 text-secondary" style="margin-left: 0%;">
+                        <small>{{obj.response_time}}ms</small>
                     </div>
-                </ul>
-            </div>
-        </div>
-    </div>
+                {% else %}
+                    <div class="col-1 text-danger" style="margin-left: 0%;">
+                        <small>{{obj.response_time}}ms</small>
+                    </div>
+                {% endif %}
+            </div> 
+       
+
+            

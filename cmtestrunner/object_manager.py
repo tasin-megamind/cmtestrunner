@@ -53,8 +53,6 @@ class ObjectManager():
                     self.matched = False
                     dict_1[key] = self.modifier_str.replace('<<replace-here>>', str(dict_1.get(key)))
                     dict_2[key] = self.modifier_str.replace('<<replace-here>>', str(dict_2.get(key)))
-                    # dict_1[key] = "<span class='text-danger'>" + str(dict_1.get(key)) + '</span>'
-                    # dict_2[key] = "<span class='text-danger'>" + str(dict_2.get(key)) + '</span>'
 
 
     
@@ -78,8 +76,8 @@ class ObjectManager():
                     continue
                 else:
                     self.matched = False
-                    list_1[index] = "<span class='text-danger'>" + str(list_1[index]) + '</span>'
-                    list_2[index] = "<span class='text-danger'>" + str(list_2[index]) + '</span>'
+                    list_1[index] = self.modifier_str.replace('<<replace-here>>', str(list_1[index]))
+                    list_2[index] = self.modifier_str.replace('<<replace-here>>', str(list_2[index]))
 
 
     def match_obj(self):
@@ -95,6 +93,9 @@ class ObjectManager():
 
         if not self.obj_1 or not self.obj_2:
             # self.mismatches.append([obj_1, obj_2])
+            self.matched = False
+            self.obj_1 = self.modifier_str.replace('<<replace-here>>', str(self.obj_1))
+            self.obj_2 = self.modifier_str.replace('<<replace-here>>', str(self.obj_2))
             return False
 
 

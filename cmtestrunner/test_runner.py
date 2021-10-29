@@ -10,7 +10,7 @@ from .middleware import (
                             unit_test_formatter, generate_test_report,
                             parse_snapshot, generate_analytics, get_test_endpoints,
                             Constants, mark_test_as_failed, form_endpoint, replace_context_var,
-                            set_default_data_to_context
+                            set_default_data_to_context, CustomDict, Context
                         )
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
@@ -33,7 +33,7 @@ class CustomTextTestResult(TextTestResult):
     def startTestRun(self):
         set_reset_seq_query()
         set_all_models()
-        set_default_data_to_context()
+        TestRunner.Context = set_default_data_to_context()
 
     def stopTestRun(self):
         self.testsRun = TestRunner.total_test_cases
@@ -44,7 +44,7 @@ class CustomTextTestResult(TextTestResult):
         if not (self.testsRun + len(Constants.EXCEPTIONS)):
             raise Exception('Something went wrong')
 
-        rendered = render_to_string('report.html', {
+        report = render_to_string('report.html', {
             'priority_fail_count': analytics,
             'passed_tests': Constants.PASSED_TESTS,
             'failed_tests': Constants.FAILED_TESTS,
@@ -56,13 +56,14 @@ class CustomTextTestResult(TextTestResult):
             'exception_percentage': float("%0.2f"%(len(Constants.EXCEPTIONS)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
             'exception_details': Constants.EXCEPTIONS
         })
-
         
         if not os.path.exists(settings.TEST_PAYLOAD_PATH + '/reports'):
             os.makedirs(settings.TEST_PAYLOAD_PATH + '/reports')
 
         f = open(settings.TEST_PAYLOAD_PATH + '/reports/report.html', 'w')
-        f.write(rendered)
+        f.write(report)
+
+        
 
 
     def startTest(self, test):
@@ -91,6 +92,8 @@ class TestRunner(TestCase):
     package = None
     ENDPOINTS = None
     query_executor = None
+    test_pool = {}
+    Context = Context
 
 
 
@@ -120,12 +123,6 @@ class TestRunner(TestCase):
             self.test_id) + ' =====>>>>> ' + self.test_data_set + \
             ' failed for language: %s.\n' % self.accept_lang
         self.custom_headers = test_data.get('headers')
-        # set_custom_headers(TestRunner.client, self.custom_headers)
-
-        # if re.match(r'(.*/)?(<.*>)(/.*)?', self.endpoint):
-        #     for k, v in self.request_body.items():
-        #         self.endpoint = self.endpoint.replace('<' + k + '>', str(v))
-        #         setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
         self.endpoint = form_endpoint(self.endpoint, self.request_body)
         setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
 
@@ -218,6 +215,7 @@ class TestRunner(TestCase):
         response_ = {}
         if self.response:
             response_time = self.response.pop('response_time')
+            response_status_code = self.response.get('status_code')
 
         
 
@@ -253,13 +251,15 @@ class TestRunner(TestCase):
                 request_header=dict(TestRunner.client.headers),
                 expected_response=exp_response,
                 error_info=error_info,
-                response_time=response_time
+                response_time=response_time,
+                status_code=response_status_code,
+                endpoint=self.endpoint
                 )
         
         try:
             self.assertEqual(self.is_matched, True, msg=errors)
         except AssertionError:
-            mark_test_as_failed()
+            mark_test_as_failed(self.test_data_set)
             raise
 
 
@@ -278,14 +278,14 @@ class TestRunner(TestCase):
             TestRunner.ENDPOINTS, 
             self.endpoint_alias
             )
+        TestRunner.test_pool[self.test_data_set] = self.test_data
+        
         
 
 
 
     def process_tests(self, **kwargs):
-        
         self.set_test_attributes(**kwargs)
-            
         for each_test_data in self.test_data:
             self.set_test_vars(each_test_data)
 
@@ -303,12 +303,12 @@ class TestRunner(TestCase):
             self.request_body = replace_context_var(self.request_body)
             self.request_body['files'] = files
             set_custom_headers(TestRunner.client, replace_context_var(self.custom_headers))
-            
             try:
                 self.response = kwargs.get('test_method')(
                     client=TestRunner.client,
                     request_body=self.request_body,
                     accept_lang=self.accept_lang,
+                    headers=self.custom_headers
                     )
                 
             except Exception as e:
@@ -328,11 +328,15 @@ class TestRunner(TestCase):
                                         self.accept_lang)
 
     def execute_tests(self, **kwargs):
-        locales = get_all_locales()
-        locales.append('en')
-        for each_lang in locales:
-            kwargs['accept_lang'] = each_lang
-            self.process_tests(**kwargs)
+        try:
+            locales = get_all_locales()
+            locales.append('en')
+            for each_lang in locales:
+                kwargs['accept_lang'] = each_lang
+                self.process_tests(**kwargs)
+        except Exception as e:
+            print(e)
+            raise
 
     def execute_unit_tests(self, **kwargs):
 

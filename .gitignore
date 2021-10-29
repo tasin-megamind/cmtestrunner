@@ -7,3 +7,4 @@ cmtestrunner/__pycache__/*
 .DS_Store
 cmtestrunner/management/__pycache__/*
 cmtestrunner/management/commands/__pycache__/*
+build
