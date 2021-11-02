@@ -121,7 +121,7 @@ def simplify_data(data):
         return parse_list_string(data)
 
 
-
+# expects CSV file
 def request_response_formatter(file):
     with open(settings.TEST_DATA_PATH + '/' + file, 'r') as test_file:
         test_data = csv.reader(test_file, delimiter=',', quotechar='"')
