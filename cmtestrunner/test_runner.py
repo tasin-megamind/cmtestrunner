@@ -337,7 +337,6 @@ class TestRunner(TestCase):
         except Exception as e:
             print(e)
             raise
-
     def execute_unit_tests(self, **kwargs):
 
         test_data_set = kwargs.get('test_data_set')

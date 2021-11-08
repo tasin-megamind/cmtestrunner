@@ -1,5 +1,6 @@
 import json
 import re
+import random
 
 class JsonTraverser():
 
@@ -8,6 +9,22 @@ class JsonTraverser():
         self.object = kwargs['object']
         self.find_with_regex = kwargs['find_with_regex']
         self.replace_with = kwargs['replace_with']
+
+    def interpret_default(self, data):
+        data = str(data)
+        if data == 'N/A':
+            return None
+        if re.match(r'random\((.*, [0-9]+)\)', data):
+            matched = re.match(r'random\((.*), ([0-9]+)\)', data)
+            random_str = ''.join(random.choice(matched[1]) for _ in range(int(matched[2])))
+            return random_str
+        elif re.match(r'integer\(([0-9]+)\)', data):
+            return int(re.match(r'integer\(([0-9]+)\)', data)[1])
+        elif re.match(r'bool\((.*)\)', data):
+            return BOOL.get(re.match(r'bool\((.*)\)', data)[1])
+        else:
+            return data
+
 
     def get_analyzed(self):
         return self.object
@@ -30,6 +47,7 @@ class JsonTraverser():
             elif type(value) is dict:
                 self.__dict_parser(value)
             else:
+                obj[key] = self.interpret_default(value)
                 if re.match(r''+self.find_with_regex, str(value)):
                     var = re.match(r''+self.find_with_regex, str(value))[1]
                     obj[key] = self.replace_with.get(var)
@@ -42,6 +60,7 @@ class JsonTraverser():
             elif type(item) is dict:
                 self.__dict_parser(item)
             else:
+                obj[key] = self.interpret_default(value)
                 if re.match(r''+self.find_with_regex, str(item)):
                     var = re.match(r''+self.find_with_regex, str(item))[1]
                     obj[index] = self.replace_with.get(var)

@@ -407,7 +407,6 @@ def parse_snapshot(snapshot, actual=None):
     matched = re.match(r'snapshot\((.*\.json)\)((\.)\((.*)\))?', str(snapshot))
     if matched:
         snapshot_file = matched[1]
-        
         if os.path.isfile(
             settings.TEST_DATA_PATH + '/snapshots/' + snapshot_file):
 
@@ -508,6 +507,7 @@ def create_default_data_by_api(file):
             if _.get('req').get('set_cookies'):
                 Context.cookies = get_cookie_string_from(client.cookies)
             set_context_vars(_.get('req').get('context', {}), response)
+        else:
             raise Exception('default data generation failed: ' + url + '\n\n' + str(_.get('req')) + '\n\n' + str(response))
 
         if _.get('req').get('wait'):
@@ -535,6 +535,7 @@ def get_cookie_string_from(cookie_jar):
 
 
 def replace_context_var(obj):
+    
     traverser = JsonTraverser(
         object=obj, 
         find_with_regex='Context\.(.*)', 
@@ -550,6 +551,7 @@ def set_default_data_to_context():
         data = get_data_from_yml(f)
         Context.update(data)
     return Context
+
 
 
 Context = CustomDict()
