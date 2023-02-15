@@ -16,14 +16,14 @@
                 {% endif %}
                 
                 <h6 class="text-primary">Request Body</h6>
-                <div class="container-boxes">
-                    <pre><code class="text-info">{{obj.request_body}}</code></pre>
+                <div>
+                    <pre><code style="color: #1F4018;">{{obj.request_body}}</code></pre>
                 </div>
                 <br>
 
                 <h6 class="text-primary">Header</h6>
-                <div class="container-boxes">
-                    <pre><code class="text-info">{{obj.request_header}}</code></pre>
+                <div>
+                    <pre><code style="color: #1F4018;">{{obj.request_header}}</code></pre>
                 </div>
                 <br>
                 
@@ -32,7 +32,7 @@
                             <h6 class="text-primary">Actual Response</h6>
                                 <small>
                                     <div class="container-boxes">
-                                        <pre><code class="text-info">{{obj.response|safe}}</code></pre></small>
+                                        <pre><code style="color: #1F4018;">{{obj.response|safe}}</code></pre></small>
                                     </div>
                                 
                         </div>
@@ -40,7 +40,7 @@
                             <h6 class="text-primary">Expected Response</h6>
                             <small>
                                 <div class="container-boxes">
-                                <pre class="lang-json"><code class="text-info">{{obj.expected_response|safe}}</code></pre>
+                                <pre class="lang-json"><code style="color: #1F4018;">{{obj.expected_response|safe}}</code></pre>
                             </div></small>
                         </div>
 

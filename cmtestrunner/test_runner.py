@@ -10,7 +10,7 @@ from .middleware import (
                             unit_test_formatter, generate_test_report,
                             parse_snapshot, generate_analytics, get_test_endpoints,
                             Constants, mark_test_as_failed, form_endpoint, replace_context_var,
-                            set_default_data_to_context
+                            set_default_data_to_context, CustomDict, Context
                         )
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
@@ -27,48 +27,54 @@ from django.template.loader import render_to_string
 from .object_manager import ObjectManager
 import time
 import copy
-
+import yaml
 
 class CustomTextTestResult(TextTestResult):
     def startTestRun(self):
         set_reset_seq_query()
         set_all_models()
-        set_default_data_to_context()
+        TestRunner.Context = set_default_data_to_context()
+
 
     def stopTestRun(self):
+        super().stopTestRun()
+        
+        TestRunner.runtime_info['test_session_status'] = 'completed'
+        with open(settings.TEST_PAYLOAD_PATH + '/data/yml/runtime_info.yml', 'w') as f:
+            yaml.dump(dict(runtimeInfo=TestRunner.runtime_info), f)
         self.testsRun = TestRunner.total_test_cases
         analytics = generate_analytics(Constants.FAIL_LOG)
         if TestRunner.query_executor:
             TestRunner.query_executor.quit()
 
-        if not (self.testsRun + len(Constants.EXCEPTIONS)):
-            raise Exception('Something went wrong')
+        if (self.testsRun + len(Constants.EXCEPTIONS)):
 
-        rendered = render_to_string('report.html', {
-            'priority_fail_count': analytics,
-            'passed_tests': Constants.PASSED_TESTS,
-            'failed_tests': Constants.FAILED_TESTS,
-            'success_count': self.testsRun - len(Constants.FAIL_LOG),
-            'success_percentage': float("%0.2f"%((self.testsRun - len(Constants.FAIL_LOG))/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
-            'fail_count': len(Constants.FAIL_LOG),
-            'fail_percentage': float("%0.2f"%(len(Constants.FAIL_LOG)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
-            'exception_count': len(Constants.EXCEPTIONS),
-            'exception_percentage': float("%0.2f"%(len(Constants.EXCEPTIONS)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
-            'exception_details': Constants.EXCEPTIONS
-        })
+            report = render_to_string('report.html', {
+                'priority_fail_count': analytics,
+                'passed_tests': Constants.PASSED_TESTS,
+                'failed_tests': Constants.FAILED_TESTS,
+                'success_count': self.testsRun - len(Constants.FAIL_LOG),
+                'success_percentage': float("%0.2f"%((self.testsRun - len(Constants.FAIL_LOG))/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+                'fail_count': len(Constants.FAIL_LOG),
+                'fail_percentage': float("%0.2f"%(len(Constants.FAIL_LOG)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+                'exception_count': len(Constants.EXCEPTIONS),
+                'exception_percentage': float("%0.2f"%(len(Constants.EXCEPTIONS)/(self.testsRun + len(Constants.EXCEPTIONS)) * 100)),
+                'exception_details': Constants.EXCEPTIONS
+            })
+            
+            if not os.path.exists(settings.TEST_PAYLOAD_PATH + '/reports'):
+                os.makedirs(settings.TEST_PAYLOAD_PATH + '/reports')
 
+            print('Generating Report for Session: {}'.format(TestRunner.test_session_id))
+            f = open(settings.TEST_PAYLOAD_PATH + '/reports/report-{}.html'.format(TestRunner.test_session_id), 'w')
+            f.write(report)
         
-        if not os.path.exists(settings.TEST_PAYLOAD_PATH + '/reports'):
-            os.makedirs(settings.TEST_PAYLOAD_PATH + '/reports')
-
-        f = open(settings.TEST_PAYLOAD_PATH + '/reports/report.html', 'w')
-        f.write(rendered)
-
 
     def startTest(self, test):
-        "Called when the given test is about to be run"
-        self._mirrorOutput = False
-        self._setupStdout()
+        super(TextTestResult, self).startTest(test)
+        with open(settings.TEST_PAYLOAD_PATH + '/data/yml/runtime_info.yml', 'w') as f:
+            TestRunner.runtime_info['session_id'] = TestRunner.test_session_id
+            yaml.dump(dict(runtimeInfo=TestRunner.runtime_info), f)
 
 
 class CustomTextTestRunner(TextTestRunner):
@@ -80,7 +86,7 @@ class CMTestRunner(DiscoverRunner):
 
 
 class TestRunner(TestCase):
-    client = False
+    client = requests.Session()
     total_test_cases = 0
     create_default_user = lambda:None
     create_default_superuser = lambda:None
@@ -91,6 +97,10 @@ class TestRunner(TestCase):
     package = None
     ENDPOINTS = None
     query_executor = None
+    test_pool = {}
+    Context = Context
+    test_session_id = None
+    runtime_info = dict(test_session_status='running', tests=[])    
 
 
 
@@ -120,12 +130,6 @@ class TestRunner(TestCase):
             self.test_id) + ' =====>>>>> ' + self.test_data_set + \
             ' failed for language: %s.\n' % self.accept_lang
         self.custom_headers = test_data.get('headers')
-        # set_custom_headers(TestRunner.client, self.custom_headers)
-
-        # if re.match(r'(.*/)?(<.*>)(/.*)?', self.endpoint):
-        #     for k, v in self.request_body.items():
-        #         self.endpoint = self.endpoint.replace('<' + k + '>', str(v))
-        #         setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
         self.endpoint = form_endpoint(self.endpoint, self.request_body)
         setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
 
@@ -209,15 +213,18 @@ class TestRunner(TestCase):
     def get_client(self):
         if settings.TEST_SERVER == 'http://testserver':
             return RequestsClient()
-        else:
-            return requests.Session()
+        return TestRunner.client
+    
 
     # see CONTRIBUTING.md for test data formats.
     def verify_test_result(self, exp_response, test_id, accept_lang):
+        response_time = None
+        response_status_code = None
 
         response_ = {}
         if self.response:
-            response_time = self.response.pop('response_time')
+            response_time = self.response.get('response_time')
+            response_status_code = self.response.get('status_code')
 
         
 
@@ -253,13 +260,15 @@ class TestRunner(TestCase):
                 request_header=dict(TestRunner.client.headers),
                 expected_response=exp_response,
                 error_info=error_info,
-                response_time=response_time
+                response_time=response_time,
+                status_code=response_status_code,
+                endpoint=self.endpoint
                 )
         
         try:
             self.assertEqual(self.is_matched, True, msg=errors)
         except AssertionError:
-            mark_test_as_failed()
+            mark_test_as_failed(self.test_data_set)
             raise
 
 
@@ -272,20 +281,24 @@ class TestRunner(TestCase):
         self.accept_lang = kwargs.get('accept_lang')
         self.set_headers(accept_lang=self.accept_lang)
         self.test_data_set = kwargs.get('test_data_set')
+        self.test_name = self.test_data_set.split('.')[0].replace('_', ' ')
         self.test_data = request_response_formatter('tests/' + self.test_data_set)
-        self.endpoint_alias = kwargs.get('test_method').__name__.upper() + '_URL'
+        self.endpoint_alias = self.test_data_set.split('.')[0].upper() + '_URL'
         self.endpoint = getattr(
             TestRunner.ENDPOINTS, 
             self.endpoint_alias
             )
+        TestRunner.test_pool[self.test_data_set] = self.test_data
         
-
 
 
     def process_tests(self, **kwargs):
-        
         self.set_test_attributes(**kwargs)
-            
+        TestRunner.runtime_info['tests'].append(
+            dict(name=self.test_name, status='running', total_tests=len(self.test_data), tests_executed=0, completion=0))
+      
+        with open(settings.TEST_PAYLOAD_PATH + '/data/yml/runtime_info.yml', 'w') as f:
+            yaml.dump(dict(runtimeInfo=TestRunner.runtime_info), f)
         for each_test_data in self.test_data:
             self.set_test_vars(each_test_data)
 
@@ -303,19 +316,18 @@ class TestRunner(TestCase):
             self.request_body = replace_context_var(self.request_body)
             self.request_body['files'] = files
             set_custom_headers(TestRunner.client, replace_context_var(self.custom_headers))
-            
             try:
+                
                 self.response = kwargs.get('test_method')(
                     client=TestRunner.client,
                     request_body=self.request_body,
                     accept_lang=self.accept_lang,
+                    headers=self.custom_headers
                     )
                 
+            except requests.exceptions.RequestException as e:
+                self.response = dict(errors=e)
             except Exception as e:
-                print(traceback.format_exc())
-                errors = self.get_error(self.error_info, self.exp_response)
-                with self.subTest():
-                    self.assertEqual(None, e, msg=errors)
                 Constants.EXCEPTIONS.append({
                     'test_method': self.test_method.__name__,
                     'details': e
@@ -326,14 +338,27 @@ class TestRunner(TestCase):
                 TestRunner.total_test_cases += 1
                 self.verify_test_result(self.exp_response, self.test_id,
                                         self.accept_lang)
+                TestRunner.runtime_info['tests'][-1]['tests_executed'] += 1
+                TestRunner.runtime_info['tests'][-1]['completion'] = round(TestRunner.runtime_info['tests'][-1]['tests_executed']/TestRunner.runtime_info['tests'][-1]['total_tests'] * 100, 2)
+                
+                with open(settings.TEST_PAYLOAD_PATH + '/data/yml/runtime_info.yml', 'w') as f:
+                    yaml.dump(dict(runtimeInfo=TestRunner.runtime_info), f)
+
+        TestRunner.runtime_info['tests'][-1]['status'] = 'completed'
+        TestRunner.runtime_info['tests'][-1]['completion'] = 100
+        with open(settings.TEST_PAYLOAD_PATH + '/data/yml/runtime_info.yml', 'w') as f:
+            yaml.dump(dict(runtimeInfo=TestRunner.runtime_info), f)
 
     def execute_tests(self, **kwargs):
-        locales = get_all_locales()
-        locales.append('en')
-        for each_lang in locales:
-            kwargs['accept_lang'] = each_lang
-            self.process_tests(**kwargs)
-
+        try:
+            locales = get_all_locales()
+            locales.append('en')
+            for each_lang in locales:
+                kwargs['accept_lang'] = each_lang
+                self.process_tests(**kwargs)
+        except Exception as e:
+            print(e)
+            raise
     def execute_unit_tests(self, **kwargs):
 
         test_data_set = kwargs.get('test_data_set')

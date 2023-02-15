@@ -1,7 +1,6 @@
-
 <!DOCTYPE html>
 <html lang="en">
-	
+
 
 <head>
 	<meta charset="utf-8">
@@ -12,167 +11,207 @@
 
 	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet"
 		integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+	<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v6.0.0-beta1/css/all.css" rel="stylesheet" />
 	<style>
 		body {
 			width: 80%;
 			padding-top: 50px;
 			margin: auto;
+			background-color: rgba(0, 255, 213, 0.075);
 		}
 
 		.container-boxes {
-			max-height: 250px; 
-			overflow: auto;  
-			border-radius: 5px; 
-			border: 2px solid #EBF6F6 ; 
+			max-height: 250px;
+			overflow: auto;
+			border-radius: 5px;
+			border: 2px solid #EBF6F6;
 			padding: 15px;
+		}
+
+		.pass_icon {
+			color: rgb(18 183 55);
+			text-shadow: 1px 1px 1px #ccc;
+		}
+
+		.fail_icon {
+			color: rgb(234 79 59);
+			text-shadow: 1px 1px 1px #ccc;
+		}
+
+		.badge-status-code {
+			font-size: 0.6em;
+		}
+
+		.blinking {
+			animation: blinkingText 2s infinite;
+		}
+
+		@keyframes blinkingText {
+			0% {
+				color: rgb(228, 26, 26);
+			}
+
+			60% {
+				color: transparent;
+			}
+
+			100% {
+				color: rgb(228, 26, 26);
+			}
+		}
+
+		#chartdiv {
+			width: 100%;
+			height: 300px;
 		}
 	</style>
 	<script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
+	<script src="https://cdn.amcharts.com/lib/4/core.js"></script>
+	<script src="https://cdn.amcharts.com/lib/4/charts.js"></script>
+	<script src="https://cdn.amcharts.com/lib/4/themes/animated.js"></script>
+
+
+	<script>
+		am4core.ready(function () {
+
+
+			am4core.useTheme(am4themes_animated);
+
+
+			var chart = am4core.create("chartdiv", am4charts.PieChart3D);
+			chart.hiddenState.properties.opacity = 0;
+
+			chart.legend = new am4charts.Legend();
+
+
+			chart.data = [
+				{
+					status: "Passed",
+					total: document.getElementById('success_count').value
+				},
+				{
+					status: "Failed",
+					total: document.getElementById('fail_count').value
+				},
+				{
+					status: "Exception",
+					total: document.getElementById('exception_count').value
+				}
+			];
+
+			var series = chart.series.push(new am4charts.PieSeries3D());
+			series.colors.list = [
+				am4core.color("#79C68F"),
+				am4core.color("#BA5E63"),
+				am4core.color("#BEC0C4"),
+
+			];
+			series.dataFields.value = "total";
+			series.dataFields.category = "status";
+
+		});
+	</script>
+
+
+
 
 </head>
 
 <body>
 
+
+	<input type="hidden" id="success_count" name="success_count" value="{{success_count}}">
+	<input type="hidden" id="fail_count" name="fail_count" value="{{fail_count}}">
+	<input type="hidden" id="exception_count" name="exception_count" value="{{exception_count}}">
 	<div class="container-fluid">
 
-		<div class="row">
-			<div class="col-md-3">
-			</div>
-			<div class="col-md-8">
-				<h1 class="text-primary">Automated Test Report<h1>
-			</div>
-			<div class="col-md-1">
-			</div>
-		</div>
-		<br>
+		<h5 class="text-primary" style="text-align: center;">Test Report</h5>
 
 		<div class="row">
 			<div class="col-md-12">
-				<h4>Summary</h4>
+				<h5>Summary</h5>
 			</div>
 		</div>
-			<br>
-			<br>
+		<br>
 		<div class="row" style="text-align: center;">
-			<div class="col-md-3">
-				<div class="card">
-					<h5 class="card-header text-white" style="background-color: #264149;">
-						SUCCESS
-					</h5>
-					<div class="card-body">
-						<p class="card-text">
-							{{success_count|default:"0"}}
-						</p>
-					</div>
-					<div class="card-footer">
-						{{success_percentage|default:"0"}}%
-					</div>
-				</div>
-			</div>
-			<div class="col-md-3">
-				<div class="card">
-					<h5 class="card-header text-white" style="background-color: #531a0d;">
-						FAILED
-					</h5>
-					<div class="card-body">
-						<p class="card-text">
-							{{fail_count|default:"0"}}
-						</p>
-					</div>
-					<div class="card-footer">
-						{{fail_percentage|default:"0"}}%
-					</div>
-				</div>
-			</div>
-			<div class="col-md-3">
-				<div class="card">
-					<h5 class="card-header text-white"  style="background-color: #3a3028">
-						EXCEPTIONS
-					</h5>
-					<div class="card-body">
-						<p class="card-text">
-							{{exception_count|default:"0"}}
-						</p>
-					</div>
-					<div class="card-footer">
-						{{exception_percentage|default:"0"}}%
-					</div>
-				</div>
+			<div class="col-6">
+				<div id="chartdiv"></div>
 			</div>
 
-			<div class="col-md-3">
-				<table class="table table-bordered" style="display: block; max-height: 164px; overflow-y: scroll;">
-					<thead>
-						<tr>
-							<th>
-								Priority
-							</th>
-							<th>
-								Failed
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						{% for row in priority_fail_count %}
+			{% if priority_fail_count %}
+				<div class="col">
+					<table class="table table-bordered" style="max-height: 164px; overflow-y: scroll;">
+						<thead>
+							<tr>
+								<th>
+									Priority
+								</th>
+								<th>
+									Failed
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for row in priority_fail_count %}
 							<tr style="height: 8px; min-height: 8px; line-height: 8px;">
 								<td>{{row.1}}</td>
 								<td>{{row.0}}</td>
 							</tr>
-						{% endfor %}
-					</tbody>
-				</table>
-			</div>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			{% endif %}
+
+			{% if exception_details %}
+				<div class="col">
+					<span class="blinking">
+						Exceptions Occurred while executing tests. Click
+						<a href="#modal-container-exceptions" data-toggle="modal">
+							HERE
+						</a>
+						to find out the details
+					</span>
+					{% include "exceptions.html" with exception_details=exception_details %}
+
+				</div>
+			{% endif %}
 		</div>
-		<br>
-		
 
 		<br>
+		<br>
+		<h5 style="text-align: center;">Tests Executed</h5>
+		<br>
 
+		{% for key, val in passed_tests.items %}
 
-		{% if failed_tests %}
-			<div class="col-md-12">
-				<h4>Failed Tests</h4>
-			</div>
-			<br>
-
-			<div id="card-3">
-
-				{% for obj in failed_tests %}
-					{% include "test_details.html" with obj=obj %}					
+		<div class="row"><strong>Test Scenario:&nbsp;</strong>{{key}}</div>
+		<div class="row"><strong>Endpoint:&nbsp;</strong><em style="color: blue;">{{val.0.endpoint}}</em></div>
+		<div class="row"><strong>Environment:</strong></div>
+		<div class="row" style="margin-left: 1%;">
+			<ul>
+				{% for steps in val.0.reproduce_steps %}
+				<li>{{steps}}</li>
 				{% endfor %}
-			</div>
-		</br>
-		{% endif %}
+			</ul>
+		</div>
+		<div class="row"><strong>Then:</strong></div>
+		{% for obj in val %}
+		{% include "test_details.html" with obj=obj %}
+		{% endfor %}
+		<br>
+		<br>
+		{% endfor %}
 
-
-		{% if passed_tests %}
-			<div class="col-md-12">
-				<h4>Passed Tests</h4>
-			</div>
-			<br>
-	
-			<div id="card-3">
-
-				{% for obj in passed_tests %}
-					{% include "test_details.html" with obj=obj %}					
-				{% endfor %}
-			</div>
-		
-	</br>
-		{% endif %}
-
-		{% include "exceptions.html" with exception_details=exception_details %}
-			
 	</div>
-                
-	<br><br><br>
 
 	<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
 		integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous">
-	</script>
+		</script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
 		integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous">
-	</script>
+		</script>
 
 </body>
 
