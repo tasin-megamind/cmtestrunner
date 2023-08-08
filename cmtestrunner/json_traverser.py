@@ -1,7 +1,7 @@
 import json
 import re
 import random
-
+import copy
 
 BOOL = {
     'true': True,
@@ -20,11 +20,30 @@ class JsonTraverser():
         self.find_with_regex = kwargs['find_with_regex']
         self.replace_with = kwargs['replace_with']
 
+
+    def get_attribute_value_from_json(self, json_obj, attribute_path):
+        if attribute_path and (type(json_obj) is dict or isinstance(json_obj, dict)):
+            attribute_value = json_obj
+            attribute_path = attribute_path.split('.')
+            for attribute in attribute_path:
+                list_available = re.match(r'^(.*)\[([0-9]+)\]$', attribute)
+                index = None
+                if list_available:
+                    attribute = list_available[1]
+                    index = int(list_available[2])
+
+                # if type(attribute_value) is dict:
+                attribute_value = attribute_value.get(attribute)
+                if index is not None:
+                    attribute_value = attribute_value[index]
+            
+            return attribute_value
+
+        raise Exception('get_attribute_value_from_json: argument error')
+
     def interpret_default(self, data):
         if type(data) is not str:
             return data
-        if data == 'N/A':
-            return None
         if re.match(r'random\((.*, [0-9]+)\)', data):
             matched = re.match(r'random\((.*), ([0-9]+)\)', data)
             random_str = ''.join(random.choice(matched[1]) for _ in range(int(matched[2])))
@@ -61,7 +80,8 @@ class JsonTraverser():
                 obj[key] = self.interpret_default(value)
                 if re.match(r''+self.find_with_regex, str(value)):
                     var = re.match(r''+self.find_with_regex, str(value))[1]
-                    obj[key] = self.replace_with.get(var)
+                    # obj[key] = self.replace_with.get(var)
+                    obj[key] = self.get_attribute_value_from_json(self.replace_with, var)
 
 
     def __list_parser(self, obj):
@@ -74,7 +94,7 @@ class JsonTraverser():
                 obj[index] = self.interpret_default(item)
                 if re.match(r''+self.find_with_regex, str(item)):
                     var = re.match(r''+self.find_with_regex, str(item))[1]
-                    obj[index] = self.replace_with.get(var)
+                    obj[index] = self.get_attribute_value_from_json(self.replace_with, var)
 
 
 

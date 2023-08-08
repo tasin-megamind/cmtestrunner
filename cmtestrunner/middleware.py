@@ -102,25 +102,22 @@ def parse_list_string(list_string):
 
 
 def simplify_data(data):
-    if data == 'N/A':
-        return None
-
-    if re.match(r'random\((.*, [0-9]+)\)', data):
-        matched = re.match(r'random\((.*), ([0-9]+)\)', data)
+    if re.match(r'random\((.*), ([0-9]+)(, (save))?\)', data):
+        matched = re.match(r'random\((.*), ([0-9]+)(, (save))?\)', data)
         random_str = ''.join(random.choice(matched[1]) for _ in range(int(matched[2])))
-        return random_str
+        return random_str, 'save' == matched[4]
     elif re.match(r'integer\(([0-9]+)\)', data):
-        return int(re.match(r'integer\(([0-9]+)\)', data)[1])
+        return int(re.match(r'integer\(([0-9]+)\)', data)[1]), False
     elif re.match(r'float\(([0-9]+\.)\)', data):
-        return float(re.match(r'float\(([0-9]+\.)\)', data)[1])
+        return float(re.match(r'float\(([0-9]+\.)\)', data)[1]), False
     elif re.match(r'bool\((.*)\)', data):
-        return BOOL.get(re.match(r'bool\((.*)\)', data)[1])
+        return BOOL.get(re.match(r'bool\((.*)\)', data)[1]), False
     elif re.match(r'attachment\((.*)\)', data):
         attachment_file = re.match('attachment\((.*)\)', data)[1]
-        return open(settings.TEST_DATA_PATH + '/upload/' + attachment_file, 'rb')
+        return open(settings.TEST_DATA_PATH + '/upload/' + attachment_file, 'rb'), False
 
     else:
-        return parse_list_string(data)
+        return parse_list_string(data), False
 
 
 
@@ -136,16 +133,20 @@ def request_response_formatter(file):
             headers = {}
 
             for index, each_header in enumerate(header):
-                simplified_data = simplify_data(row[index])
+                simplified_data, save = simplify_data(row[index])
+                # print(simplified_data)
                 parsed_obj = parse_snapshot(simplified_data)
+                param = None
                 if simplified_data is not None:
                     if each_header[:5] == 'resp_':
-                        resp[each_header[5:]] = simplified_data
+                        param = each_header[5:]
+                        resp[param] = parsed_obj
                     elif each_header[:7] == 'header_':
-                        if each_header[7:] == 'headers' and type(parsed_obj) is dict:
+                        param = each_header[7:]
+                        if param == 'headers' and type(parsed_obj) is dict:
                             headers.update(parsed_obj)
                         else:
-                            headers[each_header[7:]] = parsed_obj
+                            headers[param] = parsed_obj
                     elif isinstance(parsed_obj, io.IOBase):
                         files = req.get('files')
                         files.update({
@@ -153,10 +154,13 @@ def request_response_formatter(file):
                         })
                         req['files'] = files
                     else:
+                        param = each_header
                         if type(parsed_obj) is dict and each_header == 'request_body':
                             req.update(parsed_obj)
                         else:
                             req[each_header] = parsed_obj
+                if save:
+                    setattr(Context, param, parsed_obj)
             
 
             result = {'req': req, 'resp': resp, 'headers': headers}
@@ -371,9 +375,6 @@ def generate_test_report(**kwargs):
 
 def mark_test_as_failed(test_data_set):
     test_name = get_test_name(test_data_set)
-
-    print(test_data_set)
-    print('Constants.FAIL_LOG:>>>>>>>>>>', Constants.FAIL_LOG)
     Constants.FAIL_LOG.append(Constants.PASSED_LOG[-1])
     Constants.PASSED_TESTS[test_name][-1]['passed'] = False
     del Constants.PASSED_LOG[-1]
@@ -437,7 +438,8 @@ def object_modifier(obj, keys, value):
 def replace_attribute_value(obj, attributes):
     key_val = attributes.split('=')
     keys = key_val[0].split('.')
-    value = simplify_data(key_val[1])
+    # print(key_val, keys)
+    value, save = simplify_data(key_val[1])
     return object_modifier(obj, keys, value)
 
 
@@ -528,11 +530,11 @@ def create_default_data_by_api(file):
         request_method = _.get('req').get('method', 'post')
         request_body = _.get('req')
         client = requests.Session()
-        headers = _.get('headers')
-        
-        
+        headers = replace_context_var(_.get('headers'))
         request_body = replace_context_var(request_body)
-        client.headers.update(replace_context_var(headers))
+        purge_not_applicables(request_body)
+        purge_not_applicables(headers)
+        client.headers.update(headers)
 
         response = process_request_response(
             client=client,
@@ -595,3 +597,13 @@ def set_default_data_to_context():
 
 
 Context = CustomDict()
+
+
+def purge_not_applicables(obj):
+    if type(obj) is not dict:
+        raise Exception('Purge NA: obj is not dictionary')
+    cp_obj = copy.deepcopy(obj)
+    for key, val in cp_obj.items():
+        if val == 'N/A':
+            obj.pop(key)
+    

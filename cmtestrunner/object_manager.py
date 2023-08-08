@@ -1,12 +1,14 @@
 import copy
 import re
 import collections
+from case_insensitive_dict import CaseInsensitiveDict
 
 class ObjectManager():
 
-    def __init__(self, obj_x, obj_y, modifier_str=None):
+    def __init__(self, obj_x, obj_y, modifier_str=None, case_insensitive_check=False):
         self.obj_1 = copy.deepcopy(obj_x)
         self.obj_2 = copy.deepcopy(obj_y)
+        self.case_insensitive_check = case_insensitive_check
         if modifier_str:
             self.modifier_str = modifier_str
         else:
@@ -29,21 +31,29 @@ class ObjectManager():
         if dict_1 == dict_2:
             return True
         
+        dict_x = copy.deepcopy(dict_1)
+        dict_y = copy.deepcopy(dict_2)
+        
+        if self.case_insensitive_check:
+            dict_x = CaseInsensitiveDict(data=dict_x)
+            dict_y = CaseInsensitiveDict(data=dict_y)
+
+        
         keys = list(set(dict_1.keys()) | set(dict_2.keys()))
         
         for key in keys:    
-            if dict_1.get(key) != dict_2.get(key):  
-                if type(dict_1.get(key)) is list and type(dict_2.get(key)) is list:
-                    self.match_list_obj(dict_1.get(key), dict_2.get(key))
-                elif type(dict_1.get(key)) is dict and type(dict_2.get(key)) is dict:
-                    self.match_dict_obj(dict_1.get(key), dict_2.get(key))
-                elif self.match_schema(dict_1.get(key), dict_2.get(key)):
+            if dict_x.get(key) != dict_y.get(key):  
+                if type(dict_x.get(key)) is list and type(dict_y.get(key)) is list:
+                    self.match_list_obj(dict_x.get(key), dict_y.get(key))
+                elif type(dict_x.get(key)) is dict and type(dict_y.get(key)) is dict:
+                    self.match_dict_obj(dict_x.get(key), dict_y.get(key))
+                elif self.match_schema(dict_x.get(key), dict_y.get(key)):
                     continue
                 else:
                     self.mismatch_keys.append(key)
                     self.matched = False
-                    dict_1[key] = self.modifier_str.replace('<<replace-here>>', str(dict_1.get(key)))
-                    dict_2[key] = self.modifier_str.replace('<<replace-here>>', str(dict_2.get(key)))
+                    dict_1[key] = self.modifier_str.replace('<<replace-here>>', str(dict_x.get(key)))
+                    dict_2[key] = self.modifier_str.replace('<<replace-here>>', str(dict_y.get(key)))
 
 
     
@@ -213,7 +223,7 @@ class ObjectManager():
 #         },
 #         {
 #             "displayOrder": 7,
-#             "featureCheck": None,
+#             "featureCheck": False,
 #             "featureId": "VOID_TRANSACTION",
 #             "enabled": True,
 #             "labels": [

@@ -10,12 +10,11 @@ from .middleware import (
                             unit_test_formatter, generate_test_report,
                             parse_snapshot, generate_analytics, get_test_endpoints,
                             Constants, mark_test_as_failed, form_endpoint, replace_context_var,
-                            set_default_data_to_context, CustomDict, Context
+                            set_default_data_to_context, CustomDict, Context,  purge_not_applicables
                         )
 from unittest import TextTestRunner, TextTestResult
 from django.test.runner import DiscoverRunner
 import inspect
-import traceback
 from rest_framework.test import RequestsClient
 from django.conf import settings
 import requests
@@ -28,6 +27,7 @@ from .object_manager import ObjectManager
 import time
 import copy
 import yaml
+from case_insensitive_dict import CaseInsensitiveDict
 
 class CustomTextTestResult(TextTestResult):
     def startTestRun(self):
@@ -100,7 +100,8 @@ class TestRunner(TestCase):
     test_pool = {}
     Context = Context
     test_session_id = None
-    runtime_info = dict(test_session_status='running', tests=[])    
+    runtime_info = dict(test_session_status='running', tests=[])  
+    case_insensitive_check = False  
 
 
 
@@ -118,7 +119,6 @@ class TestRunner(TestCase):
             elif user_type == 'invalid':
                 set_auth_header(TestRunner.client, 'XXXinvalid_tokenXXX')
      
-        self.reset_env = self.request_body.get('reset_env')
         
 
         self.wait = self.request_body.get('wait', 0)
@@ -167,6 +167,7 @@ class TestRunner(TestCase):
         TestRunner.ENDPOINTS = get_test_endpoints('endpoints.yml')
 
     def set_environment(self, envs):
+        print('self.package: ', self.package)
         settings.TEST_SERVER = getattr(settings, self.package.upper() + '_BASE_URL')
         self.set_endpoints()
         TestRunner.client = self.get_client()   # need to find out why this is here again
@@ -186,7 +187,7 @@ class TestRunner(TestCase):
                     env()
         except Exception as e:
             Constants.EXCEPTIONS.append({
-                'test_method': self.test_method.__name__,
+                'test_method': self.test_name,
                 'details': e
             })
             raise Exception(env.__doc__ + ':: ' + str(e))
@@ -220,7 +221,10 @@ class TestRunner(TestCase):
     def verify_test_result(self, exp_response, test_id, accept_lang):
         response_time = None
         response_status_code = None
-
+        
+        if self.response.get('request_errors'):
+            exp_response['request_errors'] = None
+ 
         response_ = {}
         if self.response:
             response_time = self.response.get('response_time')
@@ -229,24 +233,39 @@ class TestRunner(TestCase):
         
 
         exp_response_ = copy.deepcopy(exp_response)
+        if exp_response_.get('response'):
+            exp_response.pop('response')
+            snap = parse_snapshot(exp_response_.pop('response'), self.response)  # snapshot parsing for response key
+            exp_response_.update(snap)
+            exp_response.update(snap)
 
         for key, value in exp_response_.items():
+
             if accept_lang != 'en':
                 exp_response[key] = self.format_expected_response(
                     exp_response[key], accept_lang)
-            if key == 'response':
-                exp_response.pop('response')
-                exp_response.update(parse_snapshot(value, self.response))   # there is a bug in this line, response may not be a dictionary always
-                response_.update(self.response)
+                
+            val = parse_snapshot(value, self.response.get(key))
+            if val == 'N/A':
                 continue
-            exp_response[key] = value = parse_snapshot(value, self.response.get(key))
-            response_[key] = self.response.get(key)
+            # if key == 'response':
+            #     exp_response.pop('response')
+            #     exp_response.update(parse_snapshot(value, self.response))   # there is a bug in this line, response may not be a dictionary always
+            #     response_.update(self.response)
+            #     continue
+            exp_response[key] =  val # snapshot parsing for individual keys
+            res = self.response
+            if TestRunner.case_insensitive_check:
+                res = CaseInsensitiveDict(data=self.response)
+            response_[key] = res.get(key)
         exp_response = replace_context_var(exp_response)
+
+        purge_not_applicables(exp_response)
         
         self.response = response_
 
         
-        object_manager = ObjectManager(self.response, exp_response)
+        object_manager = ObjectManager(self.response, exp_response, case_insensitive_check=TestRunner.case_insensitive_check)
         object_manager.match_obj()
         self.response, exp_response = object_manager.get_converted()
         self.is_matched = object_manager.is_matched()
@@ -276,19 +295,20 @@ class TestRunner(TestCase):
         # TestRunner.client = self.get_client()
         self.test_method = kwargs.get('test_method')
         self.environment = kwargs.get('env', [])
-        self.set_environment(self.environment)
         self.sub_test = kwargs.get('sub_test')
         self.accept_lang = kwargs.get('accept_lang')
         self.set_headers(accept_lang=self.accept_lang)
         self.test_data_set = kwargs.get('test_data_set')
         self.test_name = self.test_data_set.split('.')[0].replace('_', ' ')
+        self.set_environment(self.environment)
         self.test_data = request_response_formatter('tests/' + self.test_data_set)
-        self.endpoint_alias = self.test_data_set.split('.')[0].upper() + '_URL'
+        self.endpoint_alias = kwargs.get('endpoint_alias', [])
         self.endpoint = getattr(
-            TestRunner.ENDPOINTS, 
+            TestRunner.ENDPOINTS,
             self.endpoint_alias
             )
         TestRunner.test_pool[self.test_data_set] = self.test_data
+        
         
 
 
@@ -300,6 +320,14 @@ class TestRunner(TestCase):
         with open(settings.TEST_PAYLOAD_PATH + '/data/yml/runtime_info.yml', 'w') as f:
             yaml.dump(dict(runtimeInfo=TestRunner.runtime_info), f)
         for each_test_data in self.test_data:
+            TestRunner.runtime_info['tests'][-1]['completion'] = round(TestRunner.runtime_info['tests'][-1]['tests_executed']/TestRunner.runtime_info['tests'][-1]['total_tests'] * 100, 2)
+            
+            
+            with open(settings.TEST_PAYLOAD_PATH + '/data/yml/runtime_info.yml', 'w') as f:
+                yaml.dump(dict(runtimeInfo=TestRunner.runtime_info), f)
+
+            TestRunner.runtime_info['tests'][-1]['tests_executed'] += 1
+
             self.set_test_vars(each_test_data)
 
             if self.request_body.get(
@@ -308,16 +336,21 @@ class TestRunner(TestCase):
                 TestRunner.total_test_cases -= 1
                 continue
             time.sleep(float(self.wait)/1000)
-            if self.reset_env:
+            
+            files = self.request_body.pop('files')
+            
+            purge_not_applicables(self.request_body)
+            purge_not_applicables(self.custom_headers)
+
+            if self.request_body.get('reset_env'):
                 self.set_environment(self.environment)
                 self.request_body.pop('reset_env')
         
-            files = self.request_body.pop('files')
             self.request_body = replace_context_var(self.request_body)
+            
             self.request_body['files'] = files
             set_custom_headers(TestRunner.client, replace_context_var(self.custom_headers))
             try:
-                
                 self.response = kwargs.get('test_method')(
                     client=TestRunner.client,
                     request_body=self.request_body,
@@ -326,23 +359,20 @@ class TestRunner(TestCase):
                     )
                 
             except requests.exceptions.RequestException as e:
-                self.response = dict(errors=e)
+                self.response = dict(request_errors=e)
             except Exception as e:
                 Constants.EXCEPTIONS.append({
                     'test_method': self.test_method.__name__,
                     'details': e
                 })
+                TestRunner.runtime_info['tests'][-1]['completion'] = 100.00
+                TestRunner.runtime_info['tests'][-1]['status'] = 'completed'
                 raise Exception('Exception Occured: ' + str(e))
             
             with self.subTest():
                 TestRunner.total_test_cases += 1
                 self.verify_test_result(self.exp_response, self.test_id,
                                         self.accept_lang)
-                TestRunner.runtime_info['tests'][-1]['tests_executed'] += 1
-                TestRunner.runtime_info['tests'][-1]['completion'] = round(TestRunner.runtime_info['tests'][-1]['tests_executed']/TestRunner.runtime_info['tests'][-1]['total_tests'] * 100, 2)
-                
-                with open(settings.TEST_PAYLOAD_PATH + '/data/yml/runtime_info.yml', 'w') as f:
-                    yaml.dump(dict(runtimeInfo=TestRunner.runtime_info), f)
 
         TestRunner.runtime_info['tests'][-1]['status'] = 'completed'
         TestRunner.runtime_info['tests'][-1]['completion'] = 100
