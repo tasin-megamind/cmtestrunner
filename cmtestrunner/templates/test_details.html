@@ -11,7 +11,11 @@
                     {% endif %}
                
                     <a href="#modal-container-{{obj.test_id}}" data-toggle="modal">
-                        {{obj.test}}
+                        {% if obj.priority > 3 %}
+                        <strong>{{obj.test}}</strong>
+                        {% else %}
+                            {{obj.test}}
+                        {% endif %}
                     </a>
                     {% if obj.status_code != "500" %}
                         <span class="badge badge-pill badge-secondary badge-status-code">{{obj.status_code}}</span>

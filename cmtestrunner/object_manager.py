@@ -16,6 +16,12 @@ class ObjectManager():
                 
         self.matched = True
         self.mismatch_keys = []
+        self.mismatch_key = []
+        self.tail_available = False
+        self.paths = []
+        self.items_to_add = []
+        self.items_to_remove = []
+        self.value_change = []
 
 
 
@@ -27,7 +33,7 @@ class ObjectManager():
             return re.match(r'{}'.format(regex), str(val_1)) is not None
 
 
-    def match_dict_obj(self, dict_1, dict_2):
+    def match_dict_obj(self, dict_1, dict_2, path=[]):
         if dict_1 == dict_2:
             return True
         
@@ -40,24 +46,55 @@ class ObjectManager():
 
         
         keys = list(set(dict_1.keys()) | set(dict_2.keys()))
+
+        # if len(keys) < 2:
+        #     self.tail_available = False
         
-        for key in keys:    
-            if dict_x.get(key) != dict_y.get(key):  
+        for key in keys:
+            # path.append(key)  
+            if dict_x.get(key) != dict_y.get(key): 
+                # self.mismatch_key.append(key) 
                 if type(dict_x.get(key)) is list and type(dict_y.get(key)) is list:
-                    self.match_list_obj(dict_x.get(key), dict_y.get(key))
+                    # self.tail_available = True
+                    temp_path = copy.deepcopy(path)
+                    temp_path.append(key)
+                    self.match_list_obj(dict_x.get(key), dict_y.get(key), temp_path)
                 elif type(dict_x.get(key)) is dict and type(dict_y.get(key)) is dict:
-                    self.match_dict_obj(dict_x.get(key), dict_y.get(key))
+                    # self.tail_available = True
+                    temp_path = copy.deepcopy(path)
+                    temp_path.append(key)
+                    # print(path)
+                    self.match_dict_obj(dict_x.get(key), dict_y.get(key), temp_path)
                 elif self.match_schema(dict_x.get(key), dict_y.get(key)):
+                    # if not self.tail_available:
+                    #     self.mismatch_key = []
+                    # current_path = copy.deepcopy(path)
+                    # current_path.append(key)
+                    # self.paths.append(current_path)
                     continue
                 else:
-                    self.mismatch_keys.append(key)
+                    # self.mismatch_keys.append(key)
+                    # self.mismatch_keys.append(self.mismatch_key)
+                    # if not self.tail_available:
+                    #     self.mismatch_key = []
+                    current_path = copy.deepcopy(path)
+                    current_path.append(key)
+
+                    if type(dict_x.get(key)) is dict or type(dict_x.get(key)) is list:
+                        self.items_to_add.append(current_path)
+                    elif type(dict_y.get(key)) is dict or type(dict_y.get(key)) is list:
+                        self.items_to_remove.append(current_path)
+                    else:
+                        self.value_change.append(current_path)
+
+                    self.paths.append(current_path)
                     self.matched = False
                     dict_1[key] = self.modifier_str.replace('<<replace-here>>', str(dict_x.get(key)))
                     dict_2[key] = self.modifier_str.replace('<<replace-here>>', str(dict_y.get(key)))
 
 
     
-    def match_list_obj(self, list_1, list_2):
+    def match_list_obj(self, list_1, list_2, path=[]):
 
         if list_1 == list_2:
             return True
@@ -70,12 +107,33 @@ class ObjectManager():
         for index, element in enumerate(list_1):
             if element != list_2[index]:
                 if type(element) is dict and type(list_2[index]) is dict:
-                    self.match_dict_obj(element, list_2[index])
+                    temp_path = copy.deepcopy(path)
+                    i = '[{}]'.format(index)
+                    temp_path.append(i)
+                    self.match_dict_obj(element, list_2[index], temp_path)
                 elif type(element) is list and type(list_2[index]) is list:
-                    self.match_list_obj(element, list_2[index])
+                    temp_path = copy.deepcopy(path)
+                    i = '[{}]'.format(index)
+                    temp_path.append(i)
+                    self.match_list_obj(element, list_2[index], temp_path)
                 elif self.match_schema(element, list_2[index]):
+                    # current_path = copy.deepcopy(path)
+                    # current_path.append(index)
+                    # self.paths.append(current_path)
                     continue
                 else:
+                    current_path = copy.deepcopy(path)
+                    i = '[{}]'.format(index)
+                    current_path.append(i)
+
+                    if type(element) is dict or type(element) is list:
+                        self.items_to_add.append(current_path)
+                    elif type(list_2[index]) is dict or type(list_2[index]) is list:
+                        self.items_to_remove.append(current_path)
+                    else:
+                        self.value_change.append(current_path)
+                    
+                    self.paths.append(current_path)
                     self.matched = False
                     list_1[index] = self.modifier_str.replace('<<replace-here>>', str(list_1[index]))
                     list_2[index] = self.modifier_str.replace('<<replace-here>>', str(list_2[index]))
@@ -116,7 +174,32 @@ class ObjectManager():
         return self.matched
 
     def mismatched_keys(self):
-        return list(set(self.mismatch_keys))
+        mismatch_paths = []
+        for item in self.paths:
+            mismatch_paths.append('.'.join(item).replace('.[', '['))
+        self.paths = mismatch_paths
+
+        mismatch_paths = []
+        for item in self.value_change:
+            mismatch_paths.append('.'.join(item).replace('.[', '['))
+        self.value_change = mismatch_paths
+
+        mismatch_paths = []
+        for item in self.items_to_add:
+            mismatch_paths.append('.'.join(item).replace('.[', '['))
+        self.items_to_add = mismatch_paths
+
+        mismatch_paths = []
+        for item in self.items_to_remove:
+            mismatch_paths.append('.'.join(item).replace('.[', '['))
+
+        self.items_to_remove = mismatch_paths
+        # print(self.items_to_add, '\n\n')
+        # print(self.items_to_remove, '\n\n')
+        # print(self.value_change, '\n\n')
+        # return self.mismatch_keys, self.items_to_add, self.items_to_remove, self.value_change
+        return self.paths
+        # return list(set(self.mismatch_keys))
 
 
 # def test_object_manager():
@@ -124,6 +207,14 @@ class ObjectManager():
 #     "accessToken": "REGEX([A-Za-z0-9]{8}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{12})",
 #     "expiresInSecond": "3600",
 #     "productName": "Merchant Till",
+#     "check": {
+#         "c1": 1,
+#         "c2": {
+#             "c3": {
+#                 'a': 1
+#             }
+#         }
+#     },
 #     "featureList": [
 #         {
 #             "displayOrder": "1",
@@ -213,11 +304,11 @@ class ObjectManager():
 #             "labels": [
 #                 {
 #                     "language": "en",
-#                     "value": "Counter"
+#                     "value": "Counter1"
 #                 },
 #                 {
 #                     "language": "bn",
-#                     "value": "কাউন্টার"
+#                     "value": "কাউন্টার1"
 #                 }
 #             ]
 #         },
@@ -245,6 +336,13 @@ class ObjectManager():
 #     actual = {
 #     "accessToken": "f213a961-efb3-5632-bcc1-ca2eb40514d3",
 #     "expiresInSecond": "3600",
+#     "check": {
+#         "c1": 1,
+#         "c2": {
+#             "c3": 2,
+#             "c4": [2, 5, 8]
+#         }
+#     },
 #     "featureList": [
 #         {
 #             "displayOrder": "1",

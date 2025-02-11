@@ -6,4 +6,4 @@ from .middleware import (parse_list_string, request_response_formatter,
                         create_default_data_by_api, get_data_from_yml, 
                         set_default_data_to_context, replace_context_var, 
                         replace_attribute_value, 
-                        purge_not_applicables)
+                        purge_not_applicables, set_context_vars)

@@ -18,7 +18,9 @@ import requests
 import copy
 import time
 import io
+import urllib3 
 from .json_traverser import JsonTraverser
+urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning)
 
 class Constants():
     RESET_SEQ_QUERY = ''
@@ -40,9 +42,10 @@ class CustomDict(dict):
 
 
 
-def get_random_string(size):
-    chars = string.ascii_uppercase + string.digits + string.ascii_lowercase
-    return ''.join(random.choice(chars) for _ in range(size))
+def get_random_string(size, char_set=None):
+    if not char_set:
+        char_set = string.ascii_letters + string.digits
+    return ''.join(random.choice(char_set) for _ in range(size))
 
 def add_str_to_each_list_element(str, list_, where='before'):
     if where != 'before':
@@ -102,10 +105,14 @@ def parse_list_string(list_string):
 
 
 def simplify_data(data):
-    if re.match(r'random\((.*), ([0-9]+)(, (save))?\)', data):
-        matched = re.match(r'random\((.*), ([0-9]+)(, (save))?\)', data)
-        random_str = ''.join(random.choice(matched[1]) for _ in range(int(matched[2])))
+    if re.match(r'random\((.*),\s?([0-9]+)(,\s?(save))?\)', data):
+        matched = re.match(r'random\((.*),\s?([0-9]+)(,\s?(save))?\)', data)
+        get_random_string(matched[2], matched[1])
         return random_str, 'save' == matched[4]
+    if re.match(r'random\(([0-9]+)(,\s?(save))?\)', data):
+        matched = re.match(r'random\(([0-9]+)(,\s?(save))?\)', data)
+        random_str = get_random_string(matched[1])
+        return random_str, 'save' == matched[3]
     elif re.match(r'integer\(([0-9]+)\)', data):
         return int(re.match(r'integer\(([0-9]+)\)', data)[1]), False
     elif re.match(r'float\(([0-9]+\.)\)', data):
@@ -239,11 +246,11 @@ def format_response(response_obj):
     return response
 
 def process_request_response(**kwargs):
-    files = None
+    files = {}
     client = kwargs.get('client')
     
     if kwargs.get('data'):
-        files = kwargs.get('data').pop('files')
+        files = kwargs.get('data').pop('files', {})
 
     data = kwargs.get('data', {})
 
@@ -252,13 +259,16 @@ def process_request_response(**kwargs):
         response = processor(
             kwargs['url'],
             data=data,
-            files=files
+            files=files,
+            verify=False,
+            proxies=getattr(settings, 'PROXIES', None)
             )
     else:
         response = processor(
             kwargs['url'],
             json=data,
-            verify=False
+            verify=False,
+            proxies=getattr(settings, 'PROXIES', None)
             )
     
     for k,v in files.items():
@@ -365,7 +375,8 @@ def generate_test_report(**kwargs):
         'response_time': kwargs.get('response_time'),
         'status_code': kwargs.get('status_code'),
         'endpoint': kwargs.get('endpoint'),
-        'passed': True
+        'passed': True,
+        'priority': kwargs.get('priority')
     }
     Constants.PASSED_LOG.append(report_)
     if not Constants.PASSED_TESTS.get(test_name):
@@ -503,7 +514,7 @@ def get_attribute_value_from_json(json_obj, attribute_path):
 def set_context_vars(context_vars, response):
 
     if context_vars == '*':
-        for var_name, value in response:
+        for var_name, value in response.items():
             setattr(Context, var_name, value)
 
     else:
@@ -525,17 +536,24 @@ def create_default_data_by_api(file):
     data = request_response_formatter('default/' + file)
     
     for _ in data:
-        url = getattr(settings, _.get('req').pop('base_url').upper() + '_BASE_URL') + \
-            _.get('req').pop('endpoint')
-        request_method = _.get('req').get('method', 'post')
-        request_body = _.get('req')
         client = requests.Session()
+
         headers = replace_context_var(_.get('headers'))
-        request_body = replace_context_var(request_body)
+        request_body = replace_context_var(_.get('req'))
         purge_not_applicables(request_body)
         purge_not_applicables(headers)
-        client.headers.update(headers)
 
+
+        url = getattr(settings, request_body.pop('base_url').upper() + '_BASE_URL') + \
+            request_body.pop('endpoint')
+        request_method = request_body.pop('method', 'post')
+        
+        
+        
+        client.headers.update(headers)
+        context_params = request_body.pop('context', {})
+        set_cookies = request_body.pop('set_cookies', None)
+        wait_sec = request_body.pop('wait', 0)
         response = process_request_response(
             client=client,
             url=form_endpoint(url, request_body),
@@ -545,14 +563,14 @@ def create_default_data_by_api(file):
 
         if int(response.get('status_code')) in range(200, 205):
             print('Default Data Created with ' + url)
-            if _.get('req').get('set_cookies'):
+            if set_cookies:
                 Context.cookies = get_cookie_string_from(client.cookies)
-            set_context_vars(_.get('req').get('context', {}), response)
+            set_context_vars(context_params, response)
         else:
-            raise Exception('default data generation failed: ' + url + '\n\n' + str(_.get('req')) + '\n\n' + str(response))
+            raise Exception('default data generation failed: ' + url + '\n\n' + str(request_body) + '\n\n' + str(response))
 
-        if _.get('req').get('wait'):
-            time.sleep(int(_.get('req').get('wait')))
+        if wait_sec:
+            time.sleep(float(wait_sec))
         
 
     return response
