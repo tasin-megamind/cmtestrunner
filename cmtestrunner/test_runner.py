@@ -122,7 +122,7 @@ class TestRunner(TestCase):
                 set_auth_header(TestRunner.client, 'XXXinvalid_tokenXXX')
      
         
-
+        # self.set_endpoints()
         self.wait = self.request_body.get('wait', 0)
         self.exp_response = test_data.get('resp')
         self.priority = int(self.request_body.pop('priority'))
@@ -134,8 +134,8 @@ class TestRunner(TestCase):
             ' failed for language: %s.\n' % self.accept_lang
         self.custom_headers = test_data.get('headers')
         # self.request_body = replace_context_var(self.request_body)
-        self.endpoint = form_endpoint(self.endpoint, self.request_body)
-        setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
+        # self.endpoint = form_endpoint(self.endpoint, self.request_body)
+        # setattr(TestRunner.ENDPOINTS, self.endpoint_alias, self.endpoint)
 
 
     def get_error(self, error_info, exp_response):
@@ -377,6 +377,7 @@ class TestRunner(TestCase):
                 self.request_body.pop('reset_env')
         
             self.request_body = replace_context_var(self.request_body)
+            self.endpoint = form_endpoint(self.endpoint, self.request_body)
             
             self.request_body['files'] = files
             set_custom_headers(TestRunner.client, replace_context_var(self.custom_headers))
@@ -385,7 +386,8 @@ class TestRunner(TestCase):
                     client=TestRunner.client,
                     request_body=self.request_body,
                     accept_lang=self.accept_lang,
-                    headers=self.custom_headers
+                    headers=self.custom_headers,
+                    url=self.endpoint
                     )
                 
             except requests.exceptions.RequestException as e:
